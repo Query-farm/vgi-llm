@@ -20,7 +20,7 @@ Default model
 -------------
 ``BAAI/bge-small-en-v1.5`` -- 384-dim, MIT licensed, strong general-purpose
 English retrieval/semantic-search embeddings. Downloaded on first use to the
-fastembed cache dir (``~/.cache/...`` by default, or ``VGI_AISQL_CACHE_DIR`` /
+fastembed cache dir (``~/.cache/...`` by default, or ``VGI_LLM_CACHE_DIR`` /
 ``FASTEMBED_CACHE_PATH`` -- see :func:`_cache_dir`). The cache is gitignored.
 
 Everything here is lazy: importing this module is cheap; nothing is loaded or
@@ -56,7 +56,7 @@ _SUPPORTED_MODELS: dict[str, int] = {
 
 DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
 
-_CACHE_DIR_ENV = "VGI_AISQL_CACHE_DIR"
+_CACHE_DIR_ENV = "VGI_LLM_CACHE_DIR"
 
 _lock = threading.Lock()
 
@@ -114,7 +114,7 @@ def embedding_dim(model: str | None) -> int:
 def _cache_dir() -> str | None:
     """Where fastembed should cache downloaded ONNX models.
 
-    ``VGI_AISQL_CACHE_DIR`` wins; otherwise we honour fastembed's own
+    ``VGI_LLM_CACHE_DIR`` wins; otherwise we honour fastembed's own
     ``FASTEMBED_CACHE_PATH``; otherwise ``None`` lets fastembed pick its default
     (a cache dir under the user's home). The dir is created on demand.
 

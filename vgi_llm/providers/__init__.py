@@ -12,7 +12,7 @@ A ``model`` string routes to a backend by its leading path segment:
   which key is configured (precedence: openrouter → anthropic → openai →
   ollama), with the bare string used as the model id.
 
-Keys resolve from a VGI ``aisql`` secret first, then a provider-named secret,
+Keys resolve from a VGI ``llm`` secret first, then a provider-named secret,
 then a ``<PROVIDER>_API_KEY`` environment variable (local/CI fallback).
 """
 
@@ -21,8 +21,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from vgi_aisql.providers.anthropic_provider import AnthropicProvider
-from vgi_aisql.providers.base import (
+from vgi_llm.providers.anthropic_provider import AnthropicProvider
+from vgi_llm.providers.base import (
     BaseProvider,
     ChatProvider,
     Completion,
@@ -34,12 +34,12 @@ from vgi_aisql.providers.base import (
     ResponseFormat,
     Usage,
 )
-from vgi_aisql.providers.openai_compat import (
+from vgi_llm.providers.openai_compat import (
     OllamaProvider,
     OpenAIProvider,
     OpenRouterProvider,
 )
-from vgi_aisql.secrets import host_from_secrets, key_from_secrets
+from vgi_llm.secrets import host_from_secrets, key_from_secrets
 
 __all__ = [
     "AnthropicProvider",

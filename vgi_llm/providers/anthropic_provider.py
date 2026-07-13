@@ -8,7 +8,7 @@ import base64
 from collections.abc import Sequence
 from typing import Any
 
-from vgi_aisql.providers.base import (
+from vgi_llm.providers.base import (
     BaseProvider,
     Completion,
     CompletionParams,

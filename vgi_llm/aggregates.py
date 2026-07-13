@@ -14,9 +14,9 @@ map-reduce** so a group larger than the model's context window still reduces:
   partial answer with the LLM, then reduces the partials with the ``task`` --
   recursing until a single answer remains.
 
-The provider is resolved through :func:`vgi_aisql.engine.resolve_provider` (the
-test seam). Aggregates honor ``CREATE SECRET (TYPE aisql, ...)``: the resolved
-key and the ``aisql_*`` settings are captured in ``on_bind`` (the only aggregate
+The provider is resolved through :func:`vgi_llm.engine.resolve_provider` (the
+test seam). Aggregates honor ``CREATE SECRET (TYPE llm, ...)``: the resolved
+key and the ``llm_*`` settings are captured in ``on_bind`` (the only aggregate
 phase with secrets/settings in scope) and reused in ``finalize``, falling back to
 provider env vars (``ANTHROPIC_API_KEY`` etc.) or keyless Ollama. Consistent with
 the rest of the surface, a provider/runtime failure is **raised** as a DuckDB
@@ -37,7 +37,7 @@ from vgi.schema_utils import schema
 from vgi.table_function import ProcessParams
 from vgi_rpc import ArrowSerializableDataclass, ArrowType
 
-from vgi_aisql import engine, meta
+from vgi_llm import engine, meta
 
 #: Character budget per map chunk before a group is split for reduction.
 _CHUNK_CHARS = 6000
@@ -46,10 +46,10 @@ _MAX_BUFFER_ITEMS = 64
 #: Fixed task used by ``ai_summarize_agg``.
 _SUMMARIZE_TASK = "Summarize the following texts into a single, coherent summary."
 
-#: Bind-scoped provider config (resolved ``aisql`` secret + ``aisql_*`` settings)
+#: Bind-scoped provider config (resolved ``llm`` secret + ``llm_*`` settings)
 #: captured in ``on_bind`` -- the only aggregate phase with real secrets/settings
 #: in scope -- and looked back up in ``finalize`` by the const-args key. Provider
-#: env vars remain the fallback when no ``aisql`` secret is configured.
+#: env vars remain the fallback when no ``llm`` secret is configured.
 _BIND_CONFIG: dict[bytes, tuple[dict[str, Any] | None, engine.RuntimeSettings]] = {}
 
 
@@ -77,7 +77,7 @@ def _bind_key(args: Any) -> bytes:
 
 
 def _settings_from_bind(settings: dict[str, Any] | None) -> engine.RuntimeSettings:
-    """Read the ``aisql_*`` settings scalars from an aggregate bind's settings dict.
+    """Read the ``llm_*`` settings scalars from an aggregate bind's settings dict.
 
     Args:
         settings: The bind's ``{setting_name: scalar}`` mapping, or None.
@@ -87,12 +87,12 @@ def _settings_from_bind(settings: dict[str, Any] | None) -> engine.RuntimeSettin
     """
     get = settings.get if settings else (lambda _k: None)
     return engine.read_settings(
-        aisql_max_tokens=get("aisql_max_tokens"),
-        aisql_temperature=get("aisql_temperature"),
-        aisql_top_p=get("aisql_top_p"),
-        aisql_model=get("aisql_model"),
-        aisql_max_workers=get("aisql_max_workers"),
-        aisql_timeout=get("aisql_timeout"),
+        llm_max_tokens=get("llm_max_tokens"),
+        llm_temperature=get("llm_temperature"),
+        llm_top_p=get("llm_top_p"),
+        llm_model=get("llm_model"),
+        llm_max_workers=get("llm_max_workers"),
+        llm_timeout=get("llm_timeout"),
     )
 
 
@@ -160,9 +160,9 @@ def _map_reduce(
     Args:
         texts: The group's buffered texts.
         task: The instruction describing what to produce.
-        secrets: Resolved provider secrets (from a captured ``aisql`` secret), or
+        secrets: Resolved provider secrets (from a captured ``llm`` secret), or
             None to fall back to provider env vars.
-        settings: The resolved ``aisql_*`` settings (model / sampling / timeout).
+        settings: The resolved ``llm_*`` settings (model / sampling / timeout).
 
     Returns:
         The reduced answer, or None for an empty group.
@@ -207,7 +207,7 @@ class _AiAggBase(AggregateFunction[AggState]):
 
     @classmethod
     def on_bind(cls, params: AggregateBindParams, **kwargs: Any) -> BindResponse:
-        """Capture the resolved ``aisql`` secret + ``aisql_*`` settings at bind.
+        """Capture the resolved ``llm`` secret + ``llm_*`` settings at bind.
 
         Aggregates only have real secrets/settings in scope at bind, so we stash
         them (keyed by the const args) for ``finalize`` to reuse. The already-
@@ -223,7 +223,7 @@ class _AiAggBase(AggregateFunction[AggState]):
         """
         secret: dict[str, Any] | None = None
         unscoped = getattr(params.secrets, "_unscoped", {})
-        entry = unscoped.get("aisql")
+        entry = unscoped.get("llm")
         if entry:
             secret = {k: (v.as_py() if hasattr(v, "as_py") else v) for k, v in entry.items()}
         _BIND_CONFIG[_bind_key(params.args)] = (secret, _settings_from_bind(params.settings))
@@ -288,7 +288,7 @@ _AI_AGG_TAGS = meta.object_tags(
         "**Input/output.** Inputs: a VARCHAR column and a constant `task` string. "
         "Output: one VARCHAR per group. A group with no rows yields NULL; a "
         "provider failure is raised as a DuckDB error. Keys come from a CREATE "
-        "SECRET (TYPE aisql) or provider env vars (or keyless Ollama)."
+        "SECRET (TYPE llm) or provider env vars (or keyless Ollama)."
     ),
     doc_md=(
         "# ai_agg\n\n"
@@ -296,7 +296,7 @@ _AI_AGG_TAGS = meta.object_tags(
         "## Notes\n\n"
         "- Chunked map-reduce handles groups larger than the context window.\n"
         "- `task` is a constant instruction; NULL for an empty group.\n"
-        "- Keys come from a CREATE SECRET (TYPE aisql) or env vars (or keyless Ollama)."
+        "- Keys come from a CREATE SECRET (TYPE llm) or env vars (or keyless Ollama)."
     ),
     keywords=[
         "ai",
@@ -324,12 +324,12 @@ class AiAgg(_AiAggBase):
         description = "Aggregate a group's text rows by applying a task via chunked LLM map-reduce; VARCHAR per group."
         categories = ["aggregate"]
         null_handling = NullHandling.DEFAULT
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _AI_AGG_TAGS
         examples = [
             FunctionExample(
                 sql=(
-                    "SELECT aisql.main.ai_agg(comment, 'List the top complaints') "
+                    "SELECT llm.main.ai_agg(comment, 'List the top complaints') "
                     "FROM (VALUES ('too slow'), ('buggy UI')) AS t(comment)"
                 ),
                 description="Reduce a group's rows to one answer with a task",
@@ -382,7 +382,7 @@ _AI_SUMMARIZE_AGG_TAGS = meta.object_tags(
         "instruction use `ai_agg`; for a per-row summary use `ai_summarize`.\n\n"
         "**Input/output.** Input: a VARCHAR column. Output: one VARCHAR summary per "
         "group. An empty group yields NULL; a provider failure is raised. Keys come "
-        "from a CREATE SECRET (TYPE aisql) or env vars (or keyless Ollama)."
+        "from a CREATE SECRET (TYPE llm) or env vars (or keyless Ollama)."
     ),
     doc_md=(
         "# ai_summarize_agg\n\n"
@@ -390,7 +390,7 @@ _AI_SUMMARIZE_AGG_TAGS = meta.object_tags(
         "## Notes\n\n"
         "- Chunked map-reduce handles groups larger than the context window.\n"
         "- NULL for an empty group; a provider failure raises an error.\n"
-        "- Keys come from a CREATE SECRET (TYPE aisql) or env vars (or keyless Ollama)."
+        "- Keys come from a CREATE SECRET (TYPE llm) or env vars (or keyless Ollama)."
     ),
     keywords=[
         "ai",
@@ -418,13 +418,11 @@ class AiSummarizeAgg(_AiAggBase):
         description = "Summarize all of a group's text rows into one summary via chunked map-reduce; VARCHAR per group."
         categories = ["aggregate"]
         null_handling = NullHandling.DEFAULT
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _AI_SUMMARIZE_AGG_TAGS
         examples = [
             FunctionExample(
-                sql=(
-                    "SELECT aisql.main.ai_summarize_agg(note) FROM (VALUES ('login failed'), ('disk full')) AS t(note)"
-                ),
+                sql=("SELECT llm.main.ai_summarize_agg(note) FROM (VALUES ('login failed'), ('disk full')) AS t(note)"),
                 description="Summarize all of a group's rows into one summary",
             )
         ]

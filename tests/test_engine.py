@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from tests.fake_provider import FakeProvider, install
-from vgi_aisql import engine
-from vgi_aisql.providers import CompletionParams, Message, ProviderError
+from vgi_llm import engine
+from vgi_llm.providers import CompletionParams, Message, ProviderError
 
 
 class TestParseJsonObject:
@@ -50,7 +50,7 @@ class TestCoerceBool:
 class TestBuildSecrets:
     def test_unified_and_extra(self) -> None:
         out = engine.build_secrets({"anthropic_api_key": "k"}, {"openai": {"api_key": "o"}})
-        assert out == {"aisql": {"anthropic_api_key": "k"}, "openai": {"api_key": "o"}}
+        assert out == {"llm": {"anthropic_api_key": "k"}, "openai": {"api_key": "o"}}
 
     def test_empty(self) -> None:
         assert engine.build_secrets(None) == {}
@@ -74,12 +74,12 @@ class TestRuntimeSettings:
 
     def test_read_settings_maps_scalars(self) -> None:
         s = engine.read_settings(
-            aisql_max_tokens=_Scalar(8192),
-            aisql_temperature=_Scalar(0.5),
-            aisql_top_p=_Scalar(0.9),
-            aisql_model=_Scalar("ollama/llama3.2"),
-            aisql_max_workers=_Scalar(4),
-            aisql_timeout=_Scalar(30.0),
+            llm_max_tokens=_Scalar(8192),
+            llm_temperature=_Scalar(0.5),
+            llm_top_p=_Scalar(0.9),
+            llm_model=_Scalar("ollama/llama3.2"),
+            llm_max_workers=_Scalar(4),
+            llm_timeout=_Scalar(30.0),
         )
         params = s.completion_params()
         assert params.max_tokens == 8192

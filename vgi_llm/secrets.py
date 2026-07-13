@@ -3,7 +3,7 @@
 """Extract provider API keys from VGI-resolved secrets.
 
 The framework hands functions a mapping ``secret_type -> {field -> pa.Scalar}``.
-A single ``aisql`` secret type carries one field per provider
+A single ``llm`` secret type carries one field per provider
 (``anthropic_api_key``, ``openrouter_api_key``, ``openai_api_key``,
 ``ollama_host``), so one secret configures every backend. Keys can also be
 read from conventional single-field secrets named after the provider, matching
@@ -26,7 +26,7 @@ def _as_py(scalar: Any) -> Any:
 def key_from_secrets(secrets: dict[str, dict[str, Any]] | None, provider: str) -> str | None:
     """Resolve the API key for ``provider`` from resolved VGI secrets.
 
-    Looks first in a unified ``aisql`` secret for a ``{provider}_api_key`` (or
+    Looks first in a unified ``llm`` secret for a ``{provider}_api_key`` (or
     ``{provider}_host``) field, then falls back to a provider-named secret with
     any conventional key field.
 
@@ -40,7 +40,7 @@ def key_from_secrets(secrets: dict[str, dict[str, Any]] | None, provider: str) -
     if not secrets:
         return None
 
-    unified = secrets.get("aisql")
+    unified = secrets.get("llm")
     if unified:
         for field_name in (f"{provider}_api_key", f"{provider}_key"):
             value = _as_py(unified.get(field_name))
@@ -60,7 +60,7 @@ def key_from_secrets(secrets: dict[str, dict[str, Any]] | None, provider: str) -
 def host_from_secrets(secrets: dict[str, dict[str, Any]] | None, provider: str) -> str | None:
     """Resolve an override base URL for ``provider`` (e.g. a non-default Ollama daemon).
 
-    Reads a ``{provider}_host`` field from the unified ``aisql`` secret. The value
+    Reads a ``{provider}_host`` field from the unified ``llm`` secret. The value
     is the OpenAI-compatible base URL, including any ``/v1`` path segment.
 
     Args:
@@ -72,7 +72,7 @@ def host_from_secrets(secrets: dict[str, dict[str, Any]] | None, provider: str) 
     """
     if not secrets:
         return None
-    unified = secrets.get("aisql")
+    unified = secrets.get("llm")
     if unified:
         value = _as_py(unified.get(f"{provider}_host"))
         if value:

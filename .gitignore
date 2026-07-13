@@ -11,7 +11,7 @@ build/
 .env
 .DS_Store
 duckdb_unittest_tempdir/
-# Local fastembed ONNX model cache (VGI_AISQL_CACHE_DIR / FASTEMBED_CACHE_PATH)
+# Local fastembed ONNX model cache (VGI_LLM_CACHE_DIR / FASTEMBED_CACHE_PATH)
 .fastembed_cache/
 # vgi-lint --ai local caches (VGI180 doc review + VGI920 agent sim)
 .vgi-review-cache.json

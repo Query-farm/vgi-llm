@@ -19,7 +19,7 @@ concurrency:
 
 env:
   # Pin fastembed's model cache so the warm step, the worker, and actions/cache agree.
-  VGI_AISQL_CACHE_DIR: ${{ github.workspace }}/.fastembed_cache
+  VGI_LLM_CACHE_DIR: ${{ github.workspace }}/.fastembed_cache
   FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed_cache
 
 jobs:
@@ -51,15 +51,15 @@ jobs:
           path: ${{ github.workspace }}/.fastembed_cache
           key: fastembed-${{ runner.os }}-bge-small-en-v1.5
       - name: Warm the embedding model cache
-        run: uv run python -c "from vgi_aisql import models; models.warm_up()"
+        run: uv run python -c "from vgi_llm import models; models.warm_up()"
       - name: Ruff format check
         run: uv run ruff format --check .
       - name: Ruff lint
         run: uv run ruff check .
       - name: Type check (mypy)
-        run: uv run mypy vgi_aisql/
+        run: uv run mypy vgi_llm/
       - name: Docstring lint (pydoclint)
-        run: uv run pydoclint --config pyproject.toml vgi_aisql/
+        run: uv run pydoclint --config pyproject.toml vgi_llm/
       - name: Tests
         run: uv run pytest -n auto -q
 
@@ -81,7 +81,7 @@ jobs:
           path: ${{ github.workspace }}/.fastembed_cache
           key: fastembed-Linux-bge-small-en-v1.5
       - name: Warm the embedding model cache
-        run: uv run python -c "from vgi_aisql import models; models.warm_up()"
+        run: uv run python -c "from vgi_llm import models; models.warm_up()"
       - name: Install the haybarn unittest runner
         run: |
           uv tool install haybarn-unittest
@@ -109,9 +109,9 @@ jobs:
           path: ${{ github.workspace }}/.fastembed_cache
           key: fastembed-Linux-bge-small-en-v1.5
       - name: Warm the embedding model cache
-        run: uv run python -c "from vgi_aisql import models; models.warm_up()"
+        run: uv run python -c "from vgi_llm import models; models.warm_up()"
       - name: vgi-lint
         run: >
           uvx --prerelease allow --from vgi-lint-check vgi-lint
-          "${{ github.workspace }}/bin/vgi-aisql-worker"
+          "${{ github.workspace }}/bin/vgi-llm-worker"
           --fail-on info --no-execute

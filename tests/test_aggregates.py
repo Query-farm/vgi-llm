@@ -8,9 +8,9 @@ import pyarrow as pa
 import pytest
 
 from tests.fake_provider import FakeProvider, install
-from vgi_aisql import aggregates, engine
-from vgi_aisql.aggregates import AggState, AiAgg, AiSummarizeAgg, _chunk, _collapse
-from vgi_aisql.providers import ProviderError
+from vgi_llm import aggregates, engine
+from vgi_llm.aggregates import AggState, AiAgg, AiSummarizeAgg, _chunk, _collapse
+from vgi_llm.providers import ProviderError
 
 
 def _params(task: str = "") -> types.SimpleNamespace:
@@ -100,7 +100,7 @@ class TestSummarizeAgg:
 
 class TestSecretCapture:
     def test_finalize_resolves_via_captured_bind_secret(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # on_bind captures the resolved aisql secret; finalize must resolve with it.
+        # on_bind captures the resolved llm secret; finalize must resolve with it.
         captured: dict[str, object] = {}
 
         def resolver(
@@ -112,7 +112,7 @@ class TestSecretCapture:
         monkeypatch.setattr(engine, "resolve_provider", resolver)
 
         args = types.SimpleNamespace(positional=(pa.scalar("secret-capture-task"),))
-        secrets_accessor = types.SimpleNamespace(_unscoped={"aisql": {"anthropic_api_key": pa.scalar("sk-x")}})
+        secrets_accessor = types.SimpleNamespace(_unscoped={"llm": {"anthropic_api_key": pa.scalar("sk-x")}})
         bind_params = types.SimpleNamespace(secrets=secrets_accessor, args=args, settings=None)
         AiAgg.on_bind(bind_params)  # type: ignore[arg-type]
 
@@ -123,4 +123,4 @@ class TestSecretCapture:
             types.SimpleNamespace(args=args),  # type: ignore[arg-type]
         )
         assert out.column("result").to_pylist() == ["OK"]
-        assert captured["secrets"] == {"aisql": {"anthropic_api_key": "sk-x"}}
+        assert captured["secrets"] == {"llm": {"anthropic_api_key": "sk-x"}}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from vgi_aisql.providers import (
+from vgi_llm.providers import (
     AnthropicProvider,
     OllamaProvider,
     OpenAIProvider,
@@ -50,7 +50,7 @@ class TestPrefixRouting:
         assert model_id == provider.default_model
 
     def test_ollama_host_secret_sets_base_url(self) -> None:
-        secrets = {"aisql": {"ollama_host": "http://remote:11434/v1"}}
+        secrets = {"llm": {"ollama_host": "http://remote:11434/v1"}}
         provider, _ = resolve("ollama/llama3.2", secrets=secrets)
         assert provider.base_url == "http://remote:11434/v1"
 
@@ -62,17 +62,17 @@ class TestDefaultPrecedence:
         assert model_id == "some-model"
 
     def test_openrouter_wins_over_anthropic(self) -> None:
-        secrets = {"aisql": {"openrouter_api_key": "or", "anthropic_api_key": "an"}}
+        secrets = {"llm": {"openrouter_api_key": "or", "anthropic_api_key": "an"}}
         provider, _ = resolve("m", secrets=secrets)
         assert isinstance(provider, OpenRouterProvider)
 
     def test_anthropic_when_only_anthropic_key(self) -> None:
-        secrets = {"aisql": {"anthropic_api_key": "an"}}
+        secrets = {"llm": {"anthropic_api_key": "an"}}
         provider, _ = resolve("m", secrets=secrets)
         assert isinstance(provider, AnthropicProvider)
 
     def test_openai_when_only_openai_key(self) -> None:
-        secrets = {"aisql": {"openai_api_key": "oa"}}
+        secrets = {"llm": {"openai_api_key": "oa"}}
         provider, _ = resolve("m", secrets=secrets)
         assert isinstance(provider, OpenAIProvider)
 

@@ -10,8 +10,8 @@ import pytest
 
 from tests.fake_provider import FakeProvider, install
 from tests.harness import model_available
-from vgi_aisql.providers import ImagePart, Message, ProviderError
-from vgi_aisql.scalars import (
+from vgi_llm.providers import ImagePart, Message, ProviderError
+from vgi_llm.scalars import (
     AiClassify,
     AiComplete,
     AiCompleteDetails,

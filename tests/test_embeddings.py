@@ -14,8 +14,8 @@ import pyarrow as pa
 import pytest
 
 from tests.harness import model_available
-from vgi_aisql import models
-from vgi_aisql.scalars import AiEmbed, AiEmbedModel, AiSimilarity
+from vgi_llm import models
+from vgi_llm.scalars import AiEmbed, AiEmbedModel, AiSimilarity
 
 needs_model = pytest.mark.skipif(
     not model_available(), reason="fastembed default model not available (offline / cold cache)"

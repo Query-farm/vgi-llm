@@ -149,7 +149,7 @@ class BaseProvider:
         if not self.api_key:
             raise MissingKeyError(
                 f"provider '{self.name}' requires an API key; configure it via a VGI secret "
-                f"(TYPE aisql, field {self.name}_api_key) or the {self.name.upper()}_API_KEY env var"
+                f"(TYPE llm, field {self.name}_api_key) or the {self.name.upper()}_API_KEY env var"
             )
         return self.api_key
 

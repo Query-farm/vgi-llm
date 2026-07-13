@@ -13,7 +13,7 @@ import base64
 from collections.abc import Sequence
 from typing import Any
 
-from vgi_aisql.providers.base import (
+from vgi_llm.providers.base import (
     BaseProvider,
     Completion,
     CompletionParams,
@@ -128,8 +128,8 @@ class OpenRouterProvider(OpenAICompatProvider):
     default_model = "anthropic/claude-sonnet-5"
     default_base_url = "https://openrouter.ai/api/v1"
     extra_headers = {
-        "HTTP-Referer": "https://github.com/Query-farm/vgi-aisql",
-        "X-Title": "vgi-aisql",
+        "HTTP-Referer": "https://github.com/Query-farm/vgi-llm",
+        "X-Title": "vgi-llm",
     }
 
 

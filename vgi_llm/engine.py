@@ -16,7 +16,7 @@ identical everywhere and easy to test offline:
 - :func:`parse_json_object` / :func:`coerce_bool` are the tolerant parsers the
   structured functions (``ai_classify`` / ``ai_sentiment`` / ``ai_extract`` /
   ``ai_filter``) share.
-- :class:`RuntimeSettings` carries the resolved ``aisql_*`` DuckDB settings
+- :class:`RuntimeSettings` carries the resolved ``llm_*`` DuckDB settings
   (sampling / routing / concurrency knobs) into the provider call.
 """
 
@@ -29,7 +29,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-from vgi_aisql.providers import (
+from vgi_llm.providers import (
     Completion,
     CompletionParams,
     Message,
@@ -153,7 +153,7 @@ def map_complete(
     except ProviderError:
         raise
     except Exception as exc:  # noqa: BLE001 - add context, then re-raise (never swallow)
-        raise ProviderError(f"aisql: LLM call failed: {exc}") from exc
+        raise ProviderError(f"llm: LLM call failed: {exc}") from exc
 
     for i, p in live:
         assert p is not None
@@ -261,21 +261,21 @@ def coerce_bool(text: str | None) -> bool | None:
 
 
 def build_secrets(
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     extra: dict[str, dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """Assemble the ``secrets`` mapping ``providers.resolve`` expects.
 
     Args:
-        aisql_secret: The resolved unified ``aisql`` secret fields, or None.
+        llm_secret: The resolved unified ``llm`` secret fields, or None.
         extra: Optional additional provider-named secret entries.
 
     Returns:
         A ``{secret_type: fields}`` mapping (empty when nothing is configured).
     """
     secrets: dict[str, Any] = {}
-    if aisql_secret:
-        secrets["aisql"] = aisql_secret
+    if llm_secret:
+        secrets["llm"] = llm_secret
     if extra:
         for name, entry in extra.items():
             if entry:
@@ -284,7 +284,7 @@ def build_secrets(
 
 
 # ---------------------------------------------------------------------------
-# Runtime settings (the aisql_* DuckDB session settings)
+# Runtime settings (the llm_* DuckDB session settings)
 # ---------------------------------------------------------------------------
 
 
@@ -304,7 +304,7 @@ def _as_py(scalar: Any) -> Any:
 
 @dataclass(frozen=True)
 class RuntimeSettings:
-    """Resolved ``aisql_*`` knobs, threaded from DuckDB settings into a call.
+    """Resolved ``llm_*`` knobs, threaded from DuckDB settings into a call.
 
     Every field is optional: an unset setting keeps the provider/library
     default. ``model`` is the global default model used only when a call's own
@@ -335,7 +335,7 @@ class RuntimeSettings:
         return CompletionParams(**kwargs)
 
     def effective_model(self, call_model: str) -> str:
-        """The model to route on: the per-call arg, else the ``aisql_model`` default.
+        """The model to route on: the per-call arg, else the ``llm_model`` default.
 
         Args:
             call_model: The model argument passed to the function ('' if omitted).
@@ -346,7 +346,7 @@ class RuntimeSettings:
         return call_model or (self.model or "")
 
     def workers(self) -> int:
-        """The concurrency cap (``aisql_max_workers`` or the default).
+        """The concurrency cap (``llm_max_workers`` or the default).
 
         Returns:
             The maximum number of concurrent provider calls.
@@ -354,7 +354,7 @@ class RuntimeSettings:
         return int(self.max_workers) if self.max_workers else DEFAULT_MAX_WORKERS
 
     def timeout_value(self) -> float | None:
-        """The per-request timeout in seconds (``aisql_timeout`` or None).
+        """The per-request timeout in seconds (``llm_timeout`` or None).
 
         Returns:
             The timeout, or None to use the provider default.
@@ -364,12 +364,12 @@ class RuntimeSettings:
 
 def read_settings(
     *,
-    aisql_max_tokens: Any = None,
-    aisql_temperature: Any = None,
-    aisql_top_p: Any = None,
-    aisql_model: Any = None,
-    aisql_max_workers: Any = None,
-    aisql_timeout: Any = None,
+    llm_max_tokens: Any = None,
+    llm_temperature: Any = None,
+    llm_top_p: Any = None,
+    llm_model: Any = None,
+    llm_max_workers: Any = None,
+    llm_timeout: Any = None,
 ) -> RuntimeSettings:
     """Build :class:`RuntimeSettings` from the raw ``Setting()`` scalars.
 
@@ -378,26 +378,26 @@ def read_settings(
 
     The sampling knobs use a negative **sentinel** for "unset" (their registered
     default) so they are always delivered but only sent to the provider when set
-    to a real value; an empty ``aisql_model`` likewise means "no override".
+    to a real value; an empty ``llm_model`` likewise means "no override".
 
     Args:
-        aisql_max_tokens: Output-token cap setting scalar, or None.
-        aisql_temperature: Sampling temperature setting scalar, or None.
-        aisql_top_p: Nucleus-sampling setting scalar, or None.
-        aisql_model: Global default model setting scalar, or None.
-        aisql_max_workers: Concurrency-cap setting scalar, or None.
-        aisql_timeout: Request-timeout setting scalar, or None.
+        llm_max_tokens: Output-token cap setting scalar, or None.
+        llm_temperature: Sampling temperature setting scalar, or None.
+        llm_top_p: Nucleus-sampling setting scalar, or None.
+        llm_model: Global default model setting scalar, or None.
+        llm_max_workers: Concurrency-cap setting scalar, or None.
+        llm_timeout: Request-timeout setting scalar, or None.
 
     Returns:
         The resolved settings.
     """
     return RuntimeSettings(
-        max_tokens=_as_py(aisql_max_tokens),
-        temperature=_positive(_as_py(aisql_temperature)),
-        top_p=_positive(_as_py(aisql_top_p)),
-        model=_nonempty(_as_py(aisql_model)),
-        max_workers=_as_py(aisql_max_workers),
-        timeout=_as_py(aisql_timeout),
+        max_tokens=_as_py(llm_max_tokens),
+        temperature=_positive(_as_py(llm_temperature)),
+        top_p=_positive(_as_py(llm_top_p)),
+        model=_nonempty(_as_py(llm_model)),
+        max_workers=_as_py(llm_max_workers),
+        timeout=_as_py(llm_timeout),
     )
 
 

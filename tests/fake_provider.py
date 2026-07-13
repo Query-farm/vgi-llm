@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from vgi_aisql import engine
-from vgi_aisql.providers import Completion, ImagePart, Message, ProviderError, Usage
+from vgi_llm import engine
+from vgi_llm.providers import Completion, ImagePart, Message, ProviderError, Usage
 
 Responder = Callable[[Sequence[Message], str, Any], str | None]
 

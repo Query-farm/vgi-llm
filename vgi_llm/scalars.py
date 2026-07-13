@@ -3,7 +3,7 @@
 """AISQL scalar functions: per-row LLM completion, classification, and more.
 
 Each function maps a column of input to a column of output, one provider call
-per row (fanned across a bounded thread pool by :mod:`vgi_aisql.engine`). The
+per row (fanned across a bounded thread pool by :mod:`vgi_llm.engine`). The
 contract everywhere is the same and never crashes a scan:
 
 - NULL or empty/whitespace-only input yields a NULL output row (no model call).
@@ -15,7 +15,7 @@ named-argument syntax is a table-function feature), so the optional ``model``
 argument is exposed as a second *arity overload* sharing the SQL name -- e.g.
 ``ai_complete(prompt)`` and ``ai_complete(prompt, model)`` -- exactly as
 ``vgi-embed`` does for ``embed``. ``ai_embed`` / ``ai_similarity`` are keyless
-(local ONNX via :mod:`vgi_aisql.models`); ``prompt`` and ``ai_count_tokens`` are
+(local ONNX via :mod:`vgi_llm.models`); ``prompt`` and ``ai_count_tokens`` are
 pure and never call a model.
 """
 
@@ -30,8 +30,8 @@ from vgi.arguments import ConstParam, Param, Returns, Secret, Setting
 from vgi.metadata import FunctionExample
 from vgi.scalar_function import ScalarFunction
 
-from vgi_aisql import engine, meta, models
-from vgi_aisql.providers import ImagePart, Message, ProviderError, ResponseFormat
+from vgi_llm import engine, meta, models
+from vgi_llm.providers import ImagePart, Message, ProviderError, ResponseFormat
 
 
 def _parse_or_raise(func_name: str, completion: Any) -> dict[str, Any] | None:
@@ -160,7 +160,7 @@ _COMPLETE_TAGS = meta.object_tags(
         "## Notes\n\n"
         "- The model argument is positional; omit it for the default provider.\n"
         "- NULL/empty input and any provider failure return NULL.\n"
-        "- Configure keys with an `aisql` secret or provider env vars."
+        "- Configure keys with an `llm` secret or provider env vars."
     ),
     keywords=[
         "ai",
@@ -185,7 +185,7 @@ def _run(
     *,
     build_messages: Any,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None,
     response_format: ResponseFormat | None = None,
 ) -> list[Any]:
@@ -198,8 +198,8 @@ def _run(
         prompts: The per-row prompt texts (blank rows yield None).
         build_messages: Turns one prompt into the provider message list.
         model: The per-call model argument ('' for the settings/provider default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
         response_format: Optional structured-output JSON Schema request.
 
     Returns:
@@ -210,7 +210,7 @@ def _run(
         prompts,
         build_messages=build_messages,
         model=s.effective_model(model),
-        secrets=engine.build_secrets(aisql_secret),
+        secrets=engine.build_secrets(llm_secret),
         params=s.completion_params(),
         response_format=response_format,
         max_workers=s.workers(),
@@ -222,7 +222,7 @@ def _complete(
     prompt: pa.StringArray,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StringArray:
     """Complete a column of prompts to a column of reply strings.
@@ -230,8 +230,8 @@ def _complete(
     Args:
         prompt: The per-row prompt texts.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One VARCHAR reply (or NULL) per row.
@@ -240,7 +240,7 @@ def _complete(
         prompt.to_pylist(),
         build_messages=engine.user_message,
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
     )
     return pa.array([c.text if c is not None else None for c in completions], type=pa.string())
@@ -255,36 +255,36 @@ class AiComplete(ScalarFunction):
         name = "ai_complete"
         description = "LLM text completion for each prompt row (default model); NULL on empty/error."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _COMPLETE_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_complete('Write a haiku about DuckDB')", "Complete a prompt with the default model"
+            "SELECT llm.main.ai_complete('Write a haiku about DuckDB')", "Complete a prompt with the default model"
         )
 
     @classmethod
     def compute(
         cls,
         prompt: Annotated[pa.StringArray, Param(doc="Prompt text to complete.")],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Complete each prompt with the default model."""
         return _complete(
             prompt,
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -298,10 +298,10 @@ class AiCompleteModel(ScalarFunction):
         name = "ai_complete"
         description = "LLM text completion for each prompt row with an explicit provider/model."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _COMPLETE_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_complete('Summarize DuckDB in one line', 'ollama/llama3.2')",
+            "SELECT llm.main.ai_complete('Summarize DuckDB in one line', 'ollama/llama3.2')",
             "Complete a prompt with an explicit provider/model",
         )
 
@@ -310,26 +310,26 @@ class AiCompleteModel(ScalarFunction):
         cls,
         prompt: Annotated[pa.StringArray, Param(doc="Prompt text to complete.")],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Complete each prompt with the explicit ``model``."""
         return _complete(
             prompt,
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -380,7 +380,7 @@ def _complete_details(
     prompt: pa.StringArray,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StructArray:
     """Complete prompts and wrap each reply in the details STRUCT.
@@ -388,8 +388,8 @@ def _complete_details(
     Args:
         prompt: The per-row prompt texts.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One details STRUCT (or NULL) per row.
@@ -398,7 +398,7 @@ def _complete_details(
         prompt.to_pylist(),
         build_messages=engine.user_message,
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
     )
     rows: list[dict[str, Any] | None] = []
@@ -427,10 +427,10 @@ class AiCompleteDetails(ScalarFunction):
         name = "ai_complete_details"
         description = "LLM completion returning a STRUCT of text + model + token usage + finish reason."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _DETAILS_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_complete_details('Explain MVCC in one sentence').text",
+            "SELECT llm.main.ai_complete_details('Explain MVCC in one sentence').text",
             "Completion with token/metadata envelope",
         )
 
@@ -438,26 +438,26 @@ class AiCompleteDetails(ScalarFunction):
     def compute(
         cls,
         prompt: Annotated[pa.StringArray, Param(doc="Prompt text to complete.")],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StructArray, Returns(arrow_type=_DETAILS_STRUCT)]:
         """Complete each prompt and return the details struct."""
         return _complete_details(
             prompt,
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -471,11 +471,10 @@ class AiCompleteDetailsModel(ScalarFunction):
         name = "ai_complete_details"
         description = "LLM completion (explicit model) returning a STRUCT of text + model + usage + finish reason."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _DETAILS_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_complete_details('Explain MVCC', "
-            "'openrouter/anthropic/claude-sonnet-5').output_tokens",
+            "SELECT llm.main.ai_complete_details('Explain MVCC', 'openrouter/anthropic/claude-sonnet-5').output_tokens",
             "Completion details with an explicit provider/model",
         )
 
@@ -484,26 +483,26 @@ class AiCompleteDetailsModel(ScalarFunction):
         cls,
         prompt: Annotated[pa.StringArray, Param(doc="Prompt text to complete.")],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StructArray, Returns(arrow_type=_DETAILS_STRUCT)]:
         """Complete each prompt with ``model`` and return the details struct."""
         return _complete_details(
             prompt,
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -554,7 +553,7 @@ def _complete_image(
     image: pa.BinaryArray,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StringArray:
     """Complete each (prompt, image) pair to a reply string.
@@ -563,8 +562,8 @@ def _complete_image(
         prompt: The per-row prompt texts.
         image: The per-row image BLOBs.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One VARCHAR reply (or NULL) per row.
@@ -597,7 +596,7 @@ def _complete_image(
         [str(i) for i in order],
         build_messages=lambda enc: _messages_for(int(enc)),
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
     )
     for idx, completion in zip(order, completions, strict=True):
@@ -614,10 +613,10 @@ class AiCompleteImage(ScalarFunction):
         name = "ai_complete_image"
         description = "Multimodal LLM completion over a text prompt + an image BLOB (default model)."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _IMAGE_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_complete_image('What is in this image?', '\x89PNG'::BLOB)",
+            "SELECT llm.main.ai_complete_image('What is in this image?', '\x89PNG'::BLOB)",
             "Describe an image column with the default model",
         )
 
@@ -628,27 +627,27 @@ class AiCompleteImage(ScalarFunction):
         image: Annotated[
             pa.BinaryArray, Param(arrow_type=pa.binary(), doc="Image bytes to analyze (PNG/JPEG/GIF/WebP).")
         ],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Answer the prompt about each image with the default model."""
         return _complete_image(
             prompt,
             image,
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -662,10 +661,10 @@ class AiCompleteImageModel(ScalarFunction):
         name = "ai_complete_image"
         description = "Multimodal LLM completion over a text prompt + an image BLOB with an explicit model."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _IMAGE_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_complete_image('Describe it', '\x89PNG'::BLOB, 'openai/gpt-4o')",
+            "SELECT llm.main.ai_complete_image('Describe it', '\x89PNG'::BLOB, 'openai/gpt-4o')",
             "Describe an image with an explicit vision model",
         )
 
@@ -677,27 +676,27 @@ class AiCompleteImageModel(ScalarFunction):
             pa.BinaryArray, Param(arrow_type=pa.binary(), doc="Image bytes to analyze (PNG/JPEG/GIF/WebP).")
         ],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Answer the prompt about each image with the explicit ``model``."""
         return _complete_image(
             prompt,
             image,
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -759,7 +758,7 @@ def _classify(
     categories: list[str],
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StructArray:
     """Classify each text into a subset of ``categories``.
@@ -768,8 +767,8 @@ def _classify(
         text: The per-row input texts.
         categories: The allowed category labels.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One ``STRUCT{labels}`` (or NULL) per row.
@@ -787,7 +786,7 @@ def _classify(
         text.to_pylist(),
         build_messages=lambda p: engine.system_user_messages(system, p),
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
         response_format=ResponseFormat(json_schema=_CLASSIFY_SCHEMA, name="classification"),
     )
@@ -814,10 +813,10 @@ class AiClassify(ScalarFunction):
         name = "ai_classify"
         description = "Classify text into a subset of the given categories; returns STRUCT{labels LIST<VARCHAR>}."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _CLASSIFY_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_classify('my card was declined', ['billing','bug','feature']).labels",
+            "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels",
             "Classify text against a category list",
         )
 
@@ -828,13 +827,13 @@ class AiClassify(ScalarFunction):
         categories: Annotated[
             _ListArray, Param(arrow_type=pa.list_(pa.string()), doc="The set of category labels to choose from.")
         ],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StructArray, Returns(arrow_type=_CLASSIFY_STRUCT)]:
         """Classify each text into a subset of the (constant) first row's categories."""
         cats = categories[0].as_py() if len(categories) else []
@@ -842,14 +841,14 @@ class AiClassify(ScalarFunction):
             input,
             cats or [],
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -863,10 +862,10 @@ class AiClassifyModel(ScalarFunction):
         name = "ai_classify"
         description = "Classify text into a subset of the given categories with an explicit provider/model."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _CLASSIFY_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_classify(t, ['billing','bug'], 'ollama/llama3.2').labels "
+            "SELECT llm.main.ai_classify(t, ['billing','bug'], 'ollama/llama3.2').labels "
             "FROM (VALUES ('my card was declined')) AS x(t)",
             "Classify with an explicit provider/model",
         )
@@ -879,13 +878,13 @@ class AiClassifyModel(ScalarFunction):
             _ListArray, Param(arrow_type=pa.list_(pa.string()), doc="The set of category labels to choose from.")
         ],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StructArray, Returns(arrow_type=_CLASSIFY_STRUCT)]:
         """Classify each text using the explicit ``model``."""
         cats = categories[0].as_py() if len(categories) else []
@@ -893,14 +892,14 @@ class AiClassifyModel(ScalarFunction):
             input,
             cats or [],
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -952,7 +951,7 @@ def _filter(
     text: pa.StringArray,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.BooleanArray:
     """Evaluate ``predicate`` over each text, returning a boolean column.
@@ -961,8 +960,8 @@ def _filter(
         predicate: The natural-language condition to test.
         text: The per-row input texts.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One BOOLEAN (or NULL) per row.
@@ -976,7 +975,7 @@ def _filter(
         text.to_pylist(),
         build_messages=lambda p: engine.system_user_messages(system, p),
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
     )
     out = [engine.coerce_bool(c.text) if c is not None else None for c in completions]
@@ -992,10 +991,10 @@ class AiFilter(ScalarFunction):
         name = "ai_filter"
         description = "Evaluate a natural-language predicate over text; returns BOOLEAN (NULL on empty/error)."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _FILTER_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_filter('the text is a question', 'How do I reset my password?')",
+            "SELECT llm.main.ai_filter('the text is a question', 'How do I reset my password?')",
             "Boolean predicate over text",
         )
 
@@ -1004,27 +1003,27 @@ class AiFilter(ScalarFunction):
         cls,
         predicate: Annotated[str, ConstParam("Natural-language condition to test for each row.")],
         input: Annotated[pa.StringArray, Param(doc="Text the predicate is evaluated against.")],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.BooleanArray, Returns()]:
         """Evaluate the predicate over each text with the default model."""
         return _filter(
             predicate or "",
             input,
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1038,10 +1037,10 @@ class AiFilterModel(ScalarFunction):
         name = "ai_filter"
         description = "Evaluate a natural-language predicate over text with an explicit model; returns BOOLEAN."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _FILTER_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_filter('mentions a refund', body, 'ollama/llama3.2') "
+            "SELECT llm.main.ai_filter('mentions a refund', body, 'ollama/llama3.2') "
             "FROM (VALUES ('Please refund my order')) AS x(body)",
             "Boolean predicate with an explicit provider/model",
         )
@@ -1052,27 +1051,27 @@ class AiFilterModel(ScalarFunction):
         predicate: Annotated[str, ConstParam("Natural-language condition to test for each row.")],
         input: Annotated[pa.StringArray, Param(doc="Text the predicate is evaluated against.")],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.BooleanArray, Returns()]:
         """Evaluate the predicate over each text with the explicit ``model``."""
         return _filter(
             predicate or "",
             input,
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1133,7 +1132,7 @@ def _extract(
     response_format: str,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StringArray:
     """Extract structured JSON from each text per a JSON-Schema string.
@@ -1142,8 +1141,8 @@ def _extract(
         text: The per-row input texts.
         response_format: The JSON-Schema string describing the target shape.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One JSON VARCHAR (or NULL) per row.
@@ -1171,7 +1170,7 @@ def _extract(
         text.to_pylist(),
         build_messages=lambda p: engine.system_user_messages(system, p),
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
         response_format=rf,
     )
@@ -1191,11 +1190,10 @@ class AiExtract(ScalarFunction):
         name = "ai_extract"
         description = "Extract structured JSON from text per a JSON-Schema string; returns a JSON VARCHAR."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _EXTRACT_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_extract('Bob is 42', "
-            '\'{"type":"object","properties":{"age":{"type":"integer"}}}\')',
+            'SELECT llm.main.ai_extract(\'Bob is 42\', \'{"type":"object","properties":{"age":{"type":"integer"}}}\')',
             "Extract fields as JSON per a schema",
         )
 
@@ -1204,27 +1202,27 @@ class AiExtract(ScalarFunction):
         cls,
         input: Annotated[pa.StringArray, Param(doc="Text to extract structured data from.")],
         response_format: Annotated[str, ConstParam("JSON-Schema string describing the fields to extract.")],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Extract structured JSON from each text with the default model."""
         return _extract(
             input,
             response_format or "",
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1238,10 +1236,10 @@ class AiExtractModel(ScalarFunction):
         name = "ai_extract"
         description = "Extract structured JSON from text per a JSON-Schema string with an explicit model."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _EXTRACT_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_extract(t, '{\"type\":\"object\"}', 'ollama/llama3.2') "
+            "SELECT llm.main.ai_extract(t, '{\"type\":\"object\"}', 'ollama/llama3.2') "
             "FROM (VALUES ('Bob is 42')) AS x(t)",
             "Extract JSON with an explicit provider/model",
         )
@@ -1252,27 +1250,27 @@ class AiExtractModel(ScalarFunction):
         input: Annotated[pa.StringArray, Param(doc="Text to extract structured data from.")],
         response_format: Annotated[str, ConstParam("JSON-Schema string describing the fields to extract.")],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Extract structured JSON from each text with the explicit ``model``."""
         return _extract(
             input,
             response_format or "",
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1348,7 +1346,7 @@ def _sentiment(
     text: pa.StringArray,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StructArray:
     """Analyse sentiment for each text, returning the sentiment STRUCT.
@@ -1356,8 +1354,8 @@ def _sentiment(
     Args:
         text: The per-row input texts.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One sentiment STRUCT (or NULL) per row.
@@ -1369,7 +1367,7 @@ def _sentiment(
         text.to_pylist(),
         build_messages=lambda p: engine.system_user_messages(_SENTIMENT_SYSTEM, p),
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
         response_format=ResponseFormat(json_schema=_SENTIMENT_SCHEMA, name="sentiment"),
     )
@@ -1400,10 +1398,10 @@ class AiSentiment(ScalarFunction):
         name = "ai_sentiment"
         description = "Analyse sentiment; returns STRUCT{overall, categories LIST<STRUCT{name, sentiment}>}."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _SENTIMENT_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_sentiment('The food was great but service was slow').overall",
+            "SELECT llm.main.ai_sentiment('The food was great but service was slow').overall",
             "Overall + per-aspect sentiment",
         )
 
@@ -1411,26 +1409,26 @@ class AiSentiment(ScalarFunction):
     def compute(
         cls,
         input: Annotated[pa.StringArray, Param(doc="Text to analyse for sentiment.")],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StructArray, Returns(arrow_type=_SENTIMENT_STRUCT)]:
         """Analyse each text's sentiment with the default model."""
         return _sentiment(
             input,
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1444,10 +1442,10 @@ class AiSentimentModel(ScalarFunction):
         name = "ai_sentiment"
         description = "Analyse sentiment with an explicit model; returns the sentiment STRUCT."
         categories = ["structured"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _SENTIMENT_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_sentiment(review, 'ollama/llama3.2').overall "
+            "SELECT llm.main.ai_sentiment(review, 'ollama/llama3.2').overall "
             "FROM (VALUES ('The food was great but service was slow')) AS x(review)",
             "Sentiment with an explicit provider/model",
         )
@@ -1457,26 +1455,26 @@ class AiSentimentModel(ScalarFunction):
         cls,
         input: Annotated[pa.StringArray, Param(doc="Text to analyse for sentiment.")],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StructArray, Returns(arrow_type=_SENTIMENT_STRUCT)]:
         """Analyse each text's sentiment with the explicit ``model``."""
         return _sentiment(
             input,
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1528,7 +1526,7 @@ def _summarize(
     text: pa.StringArray,
     *,
     model: str,
-    aisql_secret: dict[str, Any] | None,
+    llm_secret: dict[str, Any] | None,
     settings: engine.RuntimeSettings | None = None,
 ) -> pa.StringArray:
     """Summarize each text to a short summary string.
@@ -1536,8 +1534,8 @@ def _summarize(
     Args:
         text: The per-row input texts.
         model: The model routing string ('' for default).
-        aisql_secret: Resolved unified ``aisql`` secret fields, or None.
-        settings: The resolved ``aisql_*`` settings, or None for defaults.
+        llm_secret: Resolved unified ``llm`` secret fields, or None.
+        settings: The resolved ``llm_*`` settings, or None for defaults.
 
     Returns:
         One VARCHAR summary (or NULL) per row.
@@ -1546,7 +1544,7 @@ def _summarize(
         text.to_pylist(),
         build_messages=lambda p: engine.system_user_messages(_SUMMARIZE_SYSTEM, p),
         model=model,
-        aisql_secret=aisql_secret,
+        llm_secret=llm_secret,
         settings=settings,
     )
     return pa.array([c.text if c is not None else None for c in completions], type=pa.string())
@@ -1561,36 +1559,36 @@ class AiSummarize(ScalarFunction):
         name = "ai_summarize"
         description = "Summarize each text into a short summary (default model); NULL on empty/error."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _SUMMARIZE_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_summarize('DuckDB is an in-process SQL OLAP database ...')", "Summarize a text"
+            "SELECT llm.main.ai_summarize('DuckDB is an in-process SQL OLAP database ...')", "Summarize a text"
         )
 
     @classmethod
     def compute(
         cls,
         input: Annotated[pa.StringArray, Param(doc="Text to summarize.")],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Summarize each text with the default model."""
         return _summarize(
             input,
             model="",
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1604,10 +1602,10 @@ class AiSummarizeModel(ScalarFunction):
         name = "ai_summarize"
         description = "Summarize each text into a short summary with an explicit provider/model."
         categories = ["completion"]
-        required_secrets = ["aisql"]
+        required_secrets = ["llm"]
         tags = _SUMMARIZE_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_summarize(body, 'ollama/llama3.2') "
+            "SELECT llm.main.ai_summarize(body, 'ollama/llama3.2') "
             "FROM (VALUES ('DuckDB is an in-process OLAP database.')) AS x(body)",
             "Summarize with an explicit provider/model",
         )
@@ -1617,26 +1615,26 @@ class AiSummarizeModel(ScalarFunction):
         cls,
         input: Annotated[pa.StringArray, Param(doc="Text to summarize.")],
         model: Annotated[str, ConstParam(_MODEL_DOC)],
-        aisql_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("aisql")] = None,
-        aisql_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
-        aisql_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_secret: Annotated[dict[str, pa.Scalar[Any]] | None, Secret("llm")] = None,
+        llm_max_tokens: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_temperature: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_top_p: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_model: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_max_workers: Annotated[pa.Scalar[Any] | None, Setting()] = None,
+        llm_timeout: Annotated[pa.Scalar[Any] | None, Setting()] = None,
     ) -> Annotated[pa.StringArray, Returns()]:
         """Summarize each text with the explicit ``model``."""
         return _summarize(
             input,
             model=model,
-            aisql_secret=aisql_secret,
+            llm_secret=llm_secret,
             settings=engine.read_settings(
-                aisql_max_tokens=aisql_max_tokens,
-                aisql_temperature=aisql_temperature,
-                aisql_top_p=aisql_top_p,
-                aisql_model=aisql_model,
-                aisql_max_workers=aisql_max_workers,
-                aisql_timeout=aisql_timeout,
+                llm_max_tokens=llm_max_tokens,
+                llm_temperature=llm_temperature,
+                llm_top_p=llm_top_p,
+                llm_model=llm_model,
+                llm_max_workers=llm_max_workers,
+                llm_timeout=llm_timeout,
             ),
         )
 
@@ -1755,7 +1753,7 @@ class AiCountTokens(ScalarFunction):
         description = "Count tokens per text with a local tiktoken tokenizer (no network); BIGINT."
         categories = ["utility"]
         tags = _COUNT_TOKENS_TAGS
-        examples = _ex("SELECT aisql.main.ai_count_tokens('the quick brown fox')", "Count the tokens in a text")
+        examples = _ex("SELECT llm.main.ai_count_tokens('the quick brown fox')", "Count the tokens in a text")
 
     @classmethod
     def compute(
@@ -1777,7 +1775,7 @@ class AiCountTokensModel(ScalarFunction):
         categories = ["utility"]
         tags = _COUNT_TOKENS_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_count_tokens('the quick brown fox', 'openai/gpt-4o')",
+            "SELECT llm.main.ai_count_tokens('the quick brown fox', 'openai/gpt-4o')",
             "Count tokens with a specific model's tokenizer",
         )
 
@@ -1901,7 +1899,7 @@ class Prompt(ScalarFunction):
         categories = ["utility"]
         tags = _PROMPT_TAGS
         examples = _ex(
-            "SELECT aisql.main.prompt('Translate {} into {}', 'hello', 'French')",
+            "SELECT llm.main.prompt('Translate {} into {}', 'hello', 'French')",
             "Fill a template with positional arguments",
         )
 
@@ -2005,7 +2003,7 @@ class AiEmbed(ScalarFunction):
         )
         categories = ["embedding"]
         tags = _EMBED_TAGS
-        examples = _ex("SELECT len(aisql.main.ai_embed('hello world'))", "Embed text into a FLOAT[] vector (keyless)")
+        examples = _ex("SELECT len(llm.main.ai_embed('hello world'))", "Embed text into a FLOAT[] vector (keyless)")
 
     @classmethod
     def compute(
@@ -2027,7 +2025,7 @@ class AiEmbedModel(ScalarFunction):
         categories = ["embedding"]
         tags = _EMBED_TAGS
         examples = _ex(
-            "SELECT len(aisql.main.ai_embed('hello world', 'BAAI/bge-base-en-v1.5'))",
+            "SELECT len(llm.main.ai_embed('hello world', 'BAAI/bge-base-en-v1.5'))",
             "Embed with an explicitly chosen local model",
         )
 
@@ -2093,7 +2091,7 @@ class AiSimilarity(ScalarFunction):
         categories = ["embedding"]
         tags = _SIMILARITY_TAGS
         examples = _ex(
-            "SELECT aisql.main.ai_similarity(aisql.main.ai_embed('cat'), aisql.main.ai_embed('kitten'))",
+            "SELECT llm.main.ai_similarity(llm.main.ai_embed('cat'), llm.main.ai_embed('kitten'))",
             "Cosine similarity between two embeddings",
         )
 
@@ -2136,7 +2134,7 @@ class AiSimilarityText(ScalarFunction):
         categories = ["embedding"]
         tags = _SIMILARITY_TAGS
         examples = _ex(
-            "SELECT ROUND(aisql.main.ai_similarity('cat', 'kitten'), 3) AS score",
+            "SELECT ROUND(llm.main.ai_similarity('cat', 'kitten'), 3) AS score",
             "Cosine similarity of two texts (embedded locally)",
         )
 
@@ -2161,7 +2159,7 @@ class AiSimilarityTextModel(ScalarFunction):
         categories = ["embedding"]
         tags = _SIMILARITY_TAGS
         examples = _ex(
-            "SELECT ROUND(aisql.main.ai_similarity('cat', 'kitten', 'BAAI/bge-small-en-v1.5'), 3) AS score",
+            "SELECT ROUND(llm.main.ai_similarity('cat', 'kitten', 'BAAI/bge-small-en-v1.5'), 3) AS score",
             "Cosine similarity of two texts with a chosen model",
         )
 

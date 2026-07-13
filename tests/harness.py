@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import functools
 
-from vgi_aisql import models
+from vgi_llm import models
 
 
 @functools.cache

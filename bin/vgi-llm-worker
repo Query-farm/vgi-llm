@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Launch wrapper so DuckDB's vgi extension can spawn this Python worker via a plain
 # filesystem LOCATION:
-#   ATTACH 'aisql' (TYPE vgi, LOCATION '/path/to/vgi-aisql/bin/vgi-aisql-worker');
+#   ATTACH 'llm' (TYPE vgi, LOCATION '/path/to/vgi-llm/bin/vgi-llm-worker');
 #
 # The worker speaks Arrow IPC over stdin/stdout (Worker.run()). `uv run` resolves the
 # project's environment (vgi-python + anthropic + openai + fastembed + pyarrow) and
@@ -9,4 +9,4 @@
 # Arrow IPC stream.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-exec uv run --project "$REPO_ROOT" --quiet vgi-aisql-worker "$@"
+exec uv run --project "$REPO_ROOT" --quiet vgi-llm-worker "$@"

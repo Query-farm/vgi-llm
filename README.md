@@ -1,8 +1,8 @@
-# vgi-aisql
+# vgi-llm
 
 **Call LLMs and embed text directly in DuckDB SQL.**
 
-`vgi-aisql` is a [VGI](https://github.com/Query-farm) worker that brings
+`vgi-llm` is a [VGI](https://github.com/Query-farm) worker that brings
 [Snowflake Cortex **AISQL**](https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql)-style
 AI functions to DuckDB — completion,
 classification, boolean filtering, extraction, sentiment, summarization, and
@@ -41,15 +41,15 @@ returning `NULL`, so a broken configuration is loud, not a column of quiet
 
 ## Install and attach
 
-`vgi-aisql` is a standard Python package whose worker is launched by the
-`vgi-aisql-worker` console script. Point DuckDB's `ATTACH ... LOCATION` at that
+`vgi-llm` is a standard Python package whose worker is launched by the
+`vgi-llm-worker` console script. Point DuckDB's `ATTACH ... LOCATION` at that
 command.
 
 **From source (no publish required):**
 
 ```sh
-git clone https://github.com/Query-farm/vgi-aisql
-cd vgi-aisql
+git clone https://github.com/Query-farm/vgi-llm
+cd vgi-llm
 uv sync
 ```
 
@@ -57,21 +57,21 @@ uv sync
 INSTALL vgi FROM community;
 LOAD vgi;
 -- uv reads the project and runs the worker; run DuckDB from the repo root
-ATTACH 'aisql' (TYPE vgi, LOCATION 'uv run vgi-aisql-worker');
+ATTACH 'llm' (TYPE vgi, LOCATION 'uv run vgi-llm-worker');
 ```
 
 **Installed on PATH** (`pip install .` or `uv tool install .`) — then the
 console script resolves directly:
 
 ```sql
-ATTACH 'aisql' (TYPE vgi, LOCATION 'vgi-aisql-worker');
+ATTACH 'llm' (TYPE vgi, LOCATION 'vgi-llm-worker');
 ```
 
-Functions live in the `aisql.main` schema. Qualify calls as `aisql.<fn>(...)`,
+Functions live in the `llm.main` schema. Qualify calls as `llm.<fn>(...)`,
 or set the search path once to call them unqualified:
 
 ```sql
-SET search_path = 'aisql.main';
+SET search_path = 'llm.main';
 ```
 
 ## Keyless in 10 seconds
@@ -82,12 +82,12 @@ use and is cached thereafter:
 
 ```sql
 -- A phrase is more similar to itself / a related word than to an unrelated one
-SELECT aisql.ai_similarity(aisql.ai_embed('cat'), aisql.ai_embed('kitten')) AS score;
+SELECT llm.ai_similarity(llm.ai_embed('cat'), llm.ai_embed('kitten')) AS score;
 
 -- Semantic search / RAG ranking, all in SQL (pairs with the DuckDB VSS extension)
 SELECT id
 FROM docs
-ORDER BY aisql.ai_similarity(aisql.ai_embed(body), aisql.ai_embed('reset password')) DESC
+ORDER BY llm.ai_similarity(llm.ai_embed(body), llm.ai_embed('reset password')) DESC
 LIMIT 5;
 ```
 
@@ -96,20 +96,20 @@ estimate) are also pure and keyless.
 
 ## Add a cloud provider
 
-Keys live in a DuckDB **secret**, never in SQL text. One unified `aisql` secret
+Keys live in a DuckDB **secret**, never in SQL text. One unified `llm` secret
 carries a field per backend, so a single `CREATE SECRET` configures everything:
 
 ```sql
 CREATE SECRET (
-  TYPE aisql,
+  TYPE llm,
   anthropic_api_key  'sk-ant-...',
   openrouter_api_key 'sk-or-...',
   openai_api_key     'sk-...'
   -- ollama is keyless; set ollama_host (e.g. 'http://host:11434/v1') for a remote daemon
 );
 
-SELECT aisql.ai_complete('Write a haiku about DuckDB');
-SELECT aisql.ai_complete('Summarize this', 'openrouter/anthropic/claude-sonnet-5');
+SELECT llm.ai_complete('Write a haiku about DuckDB');
+SELECT llm.ai_complete('Summarize this', 'openrouter/anthropic/claude-sonnet-5');
 ```
 
 The **model** argument routes to a backend by its leading path segment:
@@ -136,24 +136,24 @@ Prefer keyless local completions? Run [Ollama](https://ollama.com) and use an
 
 ## Tuning (settings)
 
-Optional `aisql_*` DuckDB session settings tune the provider calls without
+Optional `llm_*` DuckDB session settings tune the provider calls without
 changing SQL. Set them per session; unset settings keep the library default.
 
 ```sql
-SET aisql_max_tokens = 8192;                 -- raise the output-token cap
-SET aisql_model = 'openrouter/anthropic/claude-sonnet-5';  -- default when a call's model arg is ''
-SET aisql_max_workers = 16;                  -- more concurrency per batch
-SET aisql_timeout = 120;                     -- per-request timeout (seconds)
+SET llm_max_tokens = 8192;                 -- raise the output-token cap
+SET llm_model = 'openrouter/anthropic/claude-sonnet-5';  -- default when a call's model arg is ''
+SET llm_max_workers = 16;                  -- more concurrency per batch
+SET llm_timeout = 120;                     -- per-request timeout (seconds)
 ```
 
 | Setting | Type | Default | Effect |
 |---|---|---|---|
-| `aisql_max_tokens` | `BIGINT` | 4096 | Max output tokens per completion |
-| `aisql_temperature` | `DOUBLE` | unset | Sampling temperature (set ≥ 0 to send) |
-| `aisql_top_p` | `DOUBLE` | unset | Nucleus-sampling `top_p` (set ≥ 0 to send) |
-| `aisql_model` | `VARCHAR` | unset | Default model when a call's `model` arg is empty |
-| `aisql_max_workers` | `BIGINT` | 8 | Concurrency cap for per-row calls in a batch |
-| `aisql_timeout` | `DOUBLE` | 60 | Per-request provider timeout, in seconds |
+| `llm_max_tokens` | `BIGINT` | 4096 | Max output tokens per completion |
+| `llm_temperature` | `DOUBLE` | unset | Sampling temperature (set ≥ 0 to send) |
+| `llm_top_p` | `DOUBLE` | unset | Nucleus-sampling `top_p` (set ≥ 0 to send) |
+| `llm_model` | `VARCHAR` | unset | Default model when a call's `model` arg is empty |
+| `llm_max_workers` | `BIGINT` | 8 | Concurrency cap for per-row calls in a batch |
+| `llm_timeout` | `DOUBLE` | 60 | Per-request provider timeout, in seconds |
 
 > Current Anthropic models reject `temperature` / `top_p`; leave them unset when
 > routing to Anthropic (setting them will error — see [Design notes](#design-notes)).
@@ -183,7 +183,7 @@ functions are positional-only in DuckDB — there is no `model := …` for scala
 
 ## Examples
 
-Assumes `SET search_path = 'aisql.main';` (else prefix each call with `aisql.`):
+Assumes `SET search_path = 'llm.main';` (else prefix each call with `llm.`):
 
 ```sql
 -- Classify support tickets against a fixed taxonomy
@@ -214,12 +214,12 @@ FROM feedback GROUP BY topic;
 
 ## Snowflake Cortex compatibility
 
-`vgi-aisql` mirrors the **capabilities** of the
+`vgi-llm` mirrors the **capabilities** of the
 [Snowflake Cortex AISQL](https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql)
 functions with an idiomatic DuckDB surface (our own argument names and model
 strings) — it is *not* a drop-in for Snowflake SQL. Rough mapping:
 
-| Snowflake Cortex AISQL | vgi-aisql |
+| Snowflake Cortex AISQL | vgi-llm |
 |---|---|
 | `AI_COMPLETE` | `ai_complete`, `ai_complete_details`, `ai_complete_image` |
 | `AI_CLASSIFY` | `ai_classify` |
@@ -245,7 +245,7 @@ document parsing, transcription). Reach for these instead:
 | `AI_PARSE_DOCUMENT` | [vgi-tika](https://github.com/Query-farm/vgi-tika) / [vgi-pdf](https://github.com/Query-farm/vgi-pdf) — document text + layout extraction |
 | `AI_TRANSCRIBE` | [vgi-audio](https://github.com/Query-farm/vgi-audio) — audio/speech features |
 
-Related workers worth pairing with `vgi-aisql`:
+Related workers worth pairing with `vgi-llm`:
 [vgi-embed](https://github.com/Query-farm/vgi-embed) (more local embedding
 models + DuckDB VSS helpers), [vgi-rerank](https://github.com/Query-farm/vgi-rerank)
 (cross-encoder RAG reranking), and
@@ -267,7 +267,7 @@ elsewhere).
 
 Only embed and compare vectors produced by the **same** model — dimensions and
 vector spaces are not interchangeable. The download cache location is overridable
-via `VGI_AISQL_CACHE_DIR` (or `FASTEMBED_CACHE_PATH`).
+via `VGI_LLM_CACHE_DIR` (or `FASTEMBED_CACHE_PATH`).
 
 ## Performance and cost
 
@@ -288,18 +288,18 @@ endpoint), which is what the bundled `Dockerfile` serves.
 
 ```sh
 # Local HTTP server (requires the `serve` extra: vgi-python[http])
-uv run --extra serve vgi-serve vgi_aisql.worker:AiSqlWorker --http --port 8000
+uv run --extra serve vgi-serve vgi_llm.worker:LlmWorker --http --port 8000
 
 # Container image — serves HTTP by default; `stdio` for on-host worker mode
-docker build -t vgi-aisql .
-docker run -p 8000:8000 vgi-aisql            # http (default)
-docker run -i vgi-aisql stdio                 # stdio transport
+docker build -t vgi-llm .
+docker run -p 8000:8000 vgi-llm            # http (default)
+docker run -i vgi-llm stdio                 # stdio transport
 ```
 
 Attach a running HTTP worker from DuckDB by its URL instead of a command:
 
 ```sql
-ATTACH 'aisql' (TYPE vgi, LOCATION 'http://localhost:8000');
+ATTACH 'llm' (TYPE vgi, LOCATION 'http://localhost:8000');
 ```
 
 ## Design notes
@@ -326,7 +326,7 @@ ATTACH 'aisql' (TYPE vgi, LOCATION 'http://localhost:8000');
   models, and a strong `o200k_base` estimate for other models. For exact
   Anthropic counts, use the provider's own token-count API.
 - **Aggregates honor `CREATE SECRET`.** `ai_agg` / `ai_summarize_agg` capture the
-  resolved `aisql` secret and the `aisql_*` settings at bind time and reuse them
+  resolved `llm` secret and the `llm_*` settings at bind time and reuse them
   during finalize, falling back to `*_API_KEY` environment variables (or keyless
   Ollama).
 - **`ai_agg` / `ai_summarize_agg` use hierarchical map-reduce** — a group larger
@@ -342,7 +342,7 @@ ATTACH 'aisql' (TYPE vgi, LOCATION 'http://localhost:8000');
   within-batch dedup above is the cost lever.
 - **Anthropic sampling caveat.** Current Claude models reject `temperature` /
   `top_p` (HTTP 400). They are left **unset** by default; if you `SET
-  aisql_temperature`/`aisql_top_p` while routing to Anthropic, the call now
+  llm_temperature`/`llm_top_p` while routing to Anthropic, the call now
   errors loudly (a direct consequence of errors throwing) — set them only for
   providers that accept them.
 
@@ -351,7 +351,7 @@ ATTACH 'aisql' (TYPE vgi, LOCATION 'http://localhost:8000');
 ```sh
 uv sync --all-extras
 uv run ruff check --fix . && uv run ruff format .
-uv run mypy vgi_aisql/
+uv run mypy vgi_llm/
 uv run pytest -n auto
 ```
 

@@ -1,18 +1,18 @@
 # Copyright 2026 Query Farm LLC - https://query.farm
 #
-# Single image serving BOTH transports of the vgi-aisql worker:
+# Single image serving BOTH transports of the vgi-llm worker:
 #   docker run ... IMG            -> HTTP server on $PORT (default 8000; /health, VGI RPC)
 #   docker run -i ... IMG stdio   -> stdio worker DuckDB spawns on-host
 # See docker-entrypoint.sh. Keyless embeddings run locally (fastembed/ONNX); provider
-# keys are supplied at query time via a VGI `aisql` secret or *_API_KEY env vars.
+# keys are supplied at query time via a VGI `llm` secret or *_API_KEY env vars.
 # syntax=docker/dockerfile:1
 FROM python:3.13-slim
 
 ARG VERSION=0.0.0
 ARG GIT_COMMIT=unknown
-ARG SOURCE_URL=https://github.com/Query-farm/vgi-aisql
+ARG SOURCE_URL=https://github.com/Query-farm/vgi-llm
 
-LABEL org.opencontainers.image.title="vgi-aisql" \
+LABEL org.opencontainers.image.title="vgi-llm" \
       org.opencontainers.image.description="AI SQL functions for DuckDB via VGI (stdio + HTTP)" \
       org.opencontainers.image.source="${SOURCE_URL}" \
       org.opencontainers.image.version="${VERSION}" \
@@ -24,7 +24,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PORT=8000 \
-    VGI_AISQL_CACHE_DIR=/app/.fastembed_cache
+    VGI_LLM_CACHE_DIR=/app/.fastembed_cache
 
 WORKDIR /app
 
@@ -35,11 +35,11 @@ RUN apt-get update \
 
 # Install the worker + HTTP-serving extra from the source tree.
 COPY pyproject.toml README.md LICENSE ./
-COPY vgi_aisql ./vgi_aisql
+COPY vgi_llm ./vgi_llm
 RUN pip install '.[serve]'
 
 # Pre-download the default embedding model so the first ai_embed query is fast.
-RUN python -c "from vgi_aisql import models; models.warm_up()"
+RUN python -c "from vgi_llm import models; models.warm_up()"
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

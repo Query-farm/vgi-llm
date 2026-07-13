@@ -1,6 +1,6 @@
 # name: test/sql/schema.test
-# description: aisql — bind-only return-type schema backbone + keyless offline asserts (no key, no network).
-# group: [vgi_aisql]
+# description: llm — bind-only return-type schema backbone + keyless offline asserts (no key, no network).
+# group: [vgi_llm]
 #
 # Run with haybarn-unittest, so we LOAD vgi explicitly (require vgi would SKIP
 # under haybarn). The DESCRIBE asserts only BIND each function (no execution, no
@@ -14,7 +14,7 @@ statement ok
 LOAD vgi;
 
 statement ok
-ATTACH 'aisql' AS ai (TYPE vgi, LOCATION '${VGI_TEST_WORKER}');
+ATTACH 'llm' AS ai (TYPE vgi, LOCATION '${VGI_TEST_WORKER}');
 
 # ---- Return-type backbone: DESCRIBE binds only (no network) -----------------
 

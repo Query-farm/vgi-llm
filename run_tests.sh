@@ -32,11 +32,11 @@ fi
 
 # Warm the local embedding model so the worker's first ai_embed query does not pay the
 # model download inline while the runner is mid-assertion.
-uv run --quiet python -c "from vgi_aisql import models; models.warm_up()" || true
+uv run --quiet python -c "from vgi_llm import models; models.warm_up()" || true
 
 # NOTE: the last arg is a Catch2 test-name filter, not a shell glob. Catch2 only honors a
 # trailing `*` wildcard, so use `test/sql/*` (not `test/sql/*.test`).
-WORKER="$REPO_ROOT/bin/vgi-aisql-worker"
+WORKER="$REPO_ROOT/bin/vgi-llm-worker"
 TEST_GLOB="${1:-test/sql/*}"
 
 echo "==> Running SQLLogic tests"
@@ -45,5 +45,5 @@ echo "    unittest: $UNITTEST"
 echo "    tests:    $TEST_GLOB"
 
 VGI_TEST_WORKER="$WORKER" \
-VGI_WORKER_CATALOG_NAME="aisql" \
+VGI_WORKER_CATALOG_NAME="llm" \
     "$UNITTEST" --test-dir "$REPO_ROOT" "$TEST_GLOB"
