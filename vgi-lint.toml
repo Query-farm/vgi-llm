@@ -1,0 +1,16 @@
+[tool.vgi-lint-check]
+select = ["ALL"]
+fail_on = "info"
+
+[tool.vgi-lint-check.options]
+column_comment_min_ratio = 0.8
+
+[tool.vgi-lint-check.execution]
+# The keyless legs the linter's VGI911 probe touches (ai_embed / ai_similarity) load a
+# local ONNX model on first use; on a cold cache that download can exceed the default
+# scan window. Warm the model before linting (see run_tests.sh / CI) so this stays snug.
+# The provider-backed functions need a key the linter does not have, so run the metadata
+# gate with --no-execute in CI; live execution is covered by the haybarn e2e job.
+scan_timeout = 60
+timeout = 60
+concurrency = 1

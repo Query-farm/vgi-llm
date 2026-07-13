@@ -1,0 +1,124 @@
+# name: test/sql/schema.test
+# description: aisql — bind-only return-type schema backbone + keyless offline asserts (no key, no network).
+# group: [vgi_aisql]
+#
+# Run with haybarn-unittest, so we LOAD vgi explicitly (require vgi would SKIP
+# under haybarn). The DESCRIBE asserts only BIND each function (no execution, no
+# provider call), so they are fully deterministic and need no API key. The
+# keyless legs (prompt / ai_count_tokens / ai_embed / ai_similarity) run for real
+# in-process -- embeddings are local ONNX, everything else is pure arithmetic.
+
+require-env VGI_TEST_WORKER
+
+statement ok
+LOAD vgi;
+
+statement ok
+ATTACH 'aisql' AS ai (TYPE vgi, LOCATION '${VGI_TEST_WORKER}');
+
+# ---- Return-type backbone: DESCRIBE binds only (no network) -----------------
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_complete('x') AS c) WHERE column_name = 'c';
+----
+VARCHAR
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_summarize('x') AS c) WHERE column_name = 'c';
+----
+VARCHAR
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_filter('p', 'x') AS c) WHERE column_name = 'c';
+----
+BOOLEAN
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_count_tokens('x') AS c) WHERE column_name = 'c';
+----
+BIGINT
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_embed('x') AS c) WHERE column_name = 'c';
+----
+FLOAT[]
+
+query I
+SELECT column_type LIKE 'STRUCT%' FROM (DESCRIBE SELECT ai.ai_complete_details('x') AS c) WHERE column_name = 'c';
+----
+true
+
+query I
+SELECT column_type LIKE 'STRUCT%' FROM (DESCRIBE SELECT ai.ai_classify('x', ['a','b']) AS c) WHERE column_name = 'c';
+----
+true
+
+query I
+SELECT column_type LIKE 'STRUCT%' FROM (DESCRIBE SELECT ai.ai_sentiment('x') AS c) WHERE column_name = 'c';
+----
+true
+
+# ---- prompt(): pure positional template substitution (no model) -------------
+
+query T
+SELECT ai.prompt('Hi {} from {}', 'Sam', 'NYC');
+----
+Hi Sam from NYC
+
+query I
+SELECT ai.prompt(NULL, 'x') IS NULL;
+----
+true
+
+# ---- ai_count_tokens(): local heuristic (no model) --------------------------
+
+query I
+SELECT ai.ai_count_tokens('the quick brown fox') > 0;
+----
+true
+
+query I
+SELECT ai.ai_count_tokens(NULL) IS NULL;
+----
+true
+
+# ---- ai_embed(): keyless local ONNX embeddings ------------------------------
+
+query I
+SELECT len(ai.ai_embed('hello world')) = 384;
+----
+true
+
+query I
+SELECT ai.ai_embed('') IS NULL;
+----
+true
+
+query I
+SELECT ai.ai_embed(NULL) IS NULL;
+----
+true
+
+# ---- ai_similarity(): keyless cosine similarity -----------------------------
+
+# A phrase is maximally similar to itself.
+query I
+SELECT ROUND(ai.ai_similarity(ai.ai_embed('database'), ai.ai_embed('database')), 3) = 1.0;
+----
+true
+
+# A related pair scores higher than an unrelated pair (planted: dog/puppy vs dog/airplane).
+query I
+SELECT ai.ai_similarity(ai.ai_embed('dog'), ai.ai_embed('puppy'))
+     > ai.ai_similarity(ai.ai_embed('dog'), ai.ai_embed('airplane'));
+----
+true
+
+# NULL / mismatched vectors -> NULL (never crashes).
+query I
+SELECT ai.ai_similarity(NULL, ai.ai_embed('cat')) IS NULL;
+----
+true
+
+statement ok
+DETACH ai;

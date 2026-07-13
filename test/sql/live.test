@@ -1,0 +1,41 @@
+# name: test/sql/live.test
+# description: aisql — live provider legs, gated on a real key so CI stays green without one.
+# group: [vgi_aisql]
+#
+# These asserts make a REAL provider call, so the whole file is gated on
+# ANTHROPIC_API_KEY via require-env: absent (as in CI) it is SKIPPED, present it
+# runs against Anthropic. The worker also reads the key from a VGI `aisql` secret
+# (TYPE aisql, anthropic_api_key '...') when one is created; here we lean on the
+# env fallback so the leg is self-contained. Assertions check SHAPE, not exact
+# (non-deterministic) model text.
+
+require-env VGI_TEST_WORKER
+
+require-env ANTHROPIC_API_KEY
+
+statement ok
+LOAD vgi;
+
+statement ok
+ATTACH 'aisql' AS ai (TYPE vgi, LOCATION '${VGI_TEST_WORKER}');
+
+# A completion comes back non-empty.
+query I
+SELECT length(ai.ai_complete('Reply with the single word: pong', 'anthropic/claude-opus-4-8')) > 0;
+----
+true
+
+# ai_filter returns a real boolean for a clear-cut predicate.
+query I
+SELECT ai.ai_filter('the text is a greeting', 'hello there', 'anthropic/claude-opus-4-8') IS NOT NULL;
+----
+true
+
+# NULL input is still masked to NULL on the live path.
+query I
+SELECT ai.ai_complete(NULL) IS NULL;
+----
+true
+
+statement ok
+DETACH ai;
