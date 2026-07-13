@@ -1488,6 +1488,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "docstring-parser" },
     { name = "mypy" },
     { name = "pyarrow-stubs" },
     { name = "pydoclint" },
@@ -1502,12 +1503,13 @@ serve = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.69" },
+    { name = "docstring-parser", marker = "extra == 'dev'", specifier = ">=0.18" },
     { name = "fastembed", specifier = ">=0.3" },
     { name = "mypy", marker = "extra == 'dev'" },
     { name = "openai", specifier = ">=1.60" },
     { name = "pyarrow", specifier = ">=17" },
     { name = "pyarrow-stubs", marker = "extra == 'dev'" },
-    { name = "pydoclint", marker = "extra == 'dev'" },
+    { name = "pydoclint", marker = "extra == 'dev'", specifier = ">=0.9.1" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-xdist", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },

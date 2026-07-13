@@ -40,7 +40,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --frozen --extra dev
       # onnxruntime (via fastembed) dynamically loads libomp on macOS.
       - name: Install libomp (macOS)
         if: runner.os == 'macOS'
@@ -74,7 +74,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
       - name: Install worker environment
-        run: uv sync --extra dev
+        run: uv sync --frozen --extra dev
       - name: Cache the embedding model
         uses: actions/cache@v4
         with:
@@ -102,7 +102,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
       - name: Install worker environment
-        run: uv sync --extra dev
+        run: uv sync --frozen --extra dev
       - name: Cache the embedding model
         uses: actions/cache@v4
         with:
