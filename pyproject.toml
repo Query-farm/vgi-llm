@@ -43,12 +43,14 @@ serve = ["vgi-python[http]>=0.14.0"]
 dev = [
     "mypy",
     "pyarrow-stubs",
-    "pydoclint>=0.9.1",
-    "docstring-parser>=0.18",
     "pytest",
     "pytest-xdist",
     "ruff",
 ]
+# NOTE: pydoclint is intentionally NOT here. It depends on `docstring-parser-fork`,
+# which installs under the same `docstring_parser` import name as the real
+# `docstring-parser`; having both in this venv collides nondeterministically. CI
+# runs it isolated via `uvx pydoclint` instead (see .github/workflows/ci.yml).
 
 [project.scripts]
 vgi-llm-worker = "vgi_llm.worker:main"

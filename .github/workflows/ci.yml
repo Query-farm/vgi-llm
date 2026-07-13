@@ -59,7 +59,7 @@ jobs:
       - name: Type check (mypy)
         run: uv run mypy vgi_llm/
       - name: Docstring lint (pydoclint)
-        run: uv run pydoclint --config pyproject.toml vgi_llm/
+        run: uvx pydoclint@0.9.1 --config pyproject.toml vgi_llm/
       - name: Tests
         run: uv run pytest -n auto -q
 
