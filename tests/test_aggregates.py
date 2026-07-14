@@ -111,8 +111,17 @@ class TestSecretCapture:
 
         monkeypatch.setattr(engine, "resolve_provider", resolver)
 
+        # Use the real framework SecretsAccessor so we validate on_bind's public
+        # `secrets.get("llm")` path (not a private attribute).
+        from vgi.table_function import SecretsAccessor
+
+        secrets_accessor = SecretsAccessor.__new__(SecretsAccessor)
+        secrets_accessor._unscoped = {"llm": {"anthropic_api_key": pa.scalar("sk-x")}}
+        secrets_accessor._scoped = []
+        secrets_accessor._is_retry = True
+        secrets_accessor._pending_lookups = []
+
         args = types.SimpleNamespace(positional=(pa.scalar("secret-capture-task"),))
-        secrets_accessor = types.SimpleNamespace(_unscoped={"llm": {"anthropic_api_key": pa.scalar("sk-x")}})
         bind_params = types.SimpleNamespace(secrets=secrets_accessor, args=args, settings=None)
         AiAgg.on_bind(bind_params)  # type: ignore[arg-type]
 

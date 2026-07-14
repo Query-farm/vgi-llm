@@ -210,9 +210,10 @@ class _AiAggBase(AggregateFunction[AggState]):
         """Capture the resolved ``llm`` secret + ``llm_*`` settings at bind.
 
         Aggregates only have real secrets/settings in scope at bind, so we stash
-        them (keyed by the const args) for ``finalize`` to reuse. The already-
-        resolved unscoped secret is read directly -- without registering a
-        two-phase lookup, which aggregates do not support.
+        them (keyed by the const args) for ``finalize`` to reuse. The ``llm``
+        secret is declared in ``Meta.required_secrets``, so the framework has
+        already resolved it by the time ``on_bind`` runs; we read it through the
+        public :meth:`SecretsAccessor.get` API.
 
         Args:
             params: The aggregate bind parameters.
@@ -222,8 +223,7 @@ class _AiAggBase(AggregateFunction[AggState]):
             The bind response with the single ``result`` output column.
         """
         secret: dict[str, Any] | None = None
-        unscoped = getattr(params.secrets, "_unscoped", {})
-        entry = unscoped.get("llm")
+        entry = params.secrets.get("llm")
         if entry:
             secret = {k: (v.as_py() if hasattr(v, "as_py") else v) for k, v in entry.items()}
         _BIND_CONFIG[_bind_key(params.args)] = (secret, _settings_from_bind(params.settings))
