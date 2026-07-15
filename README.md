@@ -290,16 +290,24 @@ endpoint), which is what the bundled `Dockerfile` serves.
 # Local HTTP server (requires the `serve` extra: vgi-python[http])
 uv run --extra serve vgi-serve vgi_llm.worker:LlmWorker --http --port 8000
 
-# Container image — serves HTTP by default; `stdio` for on-host worker mode
+# Published multi-arch image (no build needed) — serves HTTP by default
+docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:latest   # or :0.1.2 / :edge
+docker run -i    ghcr.io/query-farm/vgi-llm:latest stdio     # stdio transport
+
+# Or build it yourself
 docker build -t vgi-llm .
-docker run -p 8000:8000 vgi-llm            # http (default)
-docker run -i vgi-llm stdio                 # stdio transport
+docker run -p 8000:8000 vgi-llm
 ```
 
-Attach a running HTTP worker from DuckDB by its URL instead of a command:
+The image is built + published to `ghcr.io/query-farm/vgi-llm` on each release
+(`vX.Y.Z` → `:X.Y.Z` / `:X.Y` / `:latest`; pushes to `main` → `:edge`),
+multi-arch (linux/amd64 + linux/arm64) and keyless-cosign-signed.
+
+Attach from DuckDB by URL, or point `ATTACH` straight at the OCI image:
 
 ```sql
-ATTACH 'llm' (TYPE vgi, LOCATION 'http://localhost:8000');
+ATTACH 'llm' (TYPE vgi, LOCATION 'http://localhost:8000');            -- a running HTTP worker
+ATTACH 'llm' (TYPE vgi, LOCATION 'oci://ghcr.io/query-farm/vgi-llm:latest');  -- pull + run the image
 ```
 
 ## Design notes
