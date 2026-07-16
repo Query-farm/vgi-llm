@@ -274,13 +274,33 @@ _AGENT_TEST_TASKS = json.dumps(
     ]
 )
 
-_SCHEMA_EXAMPLE_QUERIES = (
-    "SELECT llm.main.ai_embed('hello world');\n"
-    "SELECT llm.main.ai_similarity(llm.main.ai_embed('cat'), llm.main.ai_embed('kitten'));\n"
-    "SELECT llm.main.prompt('Summarize: {}', 'DuckDB is an in-process OLAP database');\n"
-    "SELECT llm.main.ai_count_tokens('the quick brown fox');\n"
-    "SELECT llm.main.ai_complete('Write a haiku about DuckDB');\n"
-    "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels;"
+_SCHEMA_EXAMPLE_QUERIES = json.dumps(
+    [
+        {
+            "description": "Embed text into a FLOAT[] vector (keyless local ONNX).",
+            "sql": "SELECT llm.main.ai_embed('hello world')",
+        },
+        {
+            "description": "Cosine similarity of two embeddings (keyless).",
+            "sql": "SELECT llm.main.ai_similarity(llm.main.ai_embed('cat'), llm.main.ai_embed('kitten'))",
+        },
+        {
+            "description": "Build a prompt string by safe template substitution (pure, no model).",
+            "sql": "SELECT llm.main.prompt('Summarize: {}', 'DuckDB is an in-process OLAP database')",
+        },
+        {
+            "description": "Count tokens locally with tiktoken (no model call).",
+            "sql": "SELECT llm.main.ai_count_tokens('the quick brown fox')",
+        },
+        {
+            "description": "Complete a prompt with the default provider.",
+            "sql": "SELECT llm.main.ai_complete('Write a haiku about DuckDB')",
+        },
+        {
+            "description": "Classify text into a subset of the given categories.",
+            "sql": "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels",
+        },
+    ]
 )
 
 _CATALOG_TAGS = {

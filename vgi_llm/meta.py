@@ -20,6 +20,62 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from vgi.metadata import FunctionExample
+
+
+def example_queries_tag(examples: Sequence[FunctionExample]) -> str:
+    """Serialize a ``FunctionExample`` list as a ``vgi.example_queries`` JSON list.
+
+    The strict lint profile (VGI515) requires every function example to carry a
+    description. The VGI extension fills the native ``duckdb_functions().examples``
+    column from ``Meta.examples`` as bare SQL strings (no description); emitting
+    the same SQL here *with* its description lets vgi-lint dedupe by normalized
+    SQL and keep the described entry, so every example is described.
+
+    Args:
+        examples: The function's ``Meta.examples`` list.
+
+    Returns:
+        A JSON array string of ``{"description", "sql"}`` objects.
+    """
+    return json.dumps([{"description": e.description, "sql": e.sql} for e in examples])
+
+
+def apply_combined_example_queries(functions: Sequence[Any]) -> None:
+    """Give every overload of a function name the SAME described-example tag.
+
+    The VGI extension surfaces a *single* overload's ``tags`` (hence one
+    ``vgi.example_queries``) for **every** ``duckdb_functions()`` row of a name,
+    while the native description-less ``examples`` column is per-overload. So each
+    overload must advertise **all** overloads' example SQL for vgi-lint to dedupe
+    (VGI515) every overload's native example against a described tag entry. This
+    sets, on every class sharing a ``Meta.name``, a combined ``vgi.example_queries``
+    built from the union of all those overloads' ``Meta.examples`` (deduped by
+    normalized SQL).
+
+    Args:
+        functions: The function classes to post-process (a worker's scalar or
+            aggregate registry).
+    """
+    by_name: dict[str, list[Any]] = {}
+    for cls in functions:
+        by_name.setdefault(cls.Meta.name, []).append(cls)
+    for classes in by_name.values():
+        combined: list[Any] = []
+        seen: set[str] = set()
+        for cls in classes:
+            for example in getattr(cls.Meta, "examples", None) or []:
+                key = " ".join(example.sql.split()).lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                combined.append(example)
+        tag = example_queries_tag(combined)
+        for cls in classes:
+            cls.Meta.tags = {**cls.Meta.tags, "vgi.example_queries": tag}
 
 
 def keywords_json(keywords: Sequence[str]) -> str:

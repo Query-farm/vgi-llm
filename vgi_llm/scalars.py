@@ -256,10 +256,10 @@ class AiComplete(ScalarFunction):
         description = "LLM text completion for each prompt row (default model); NULL on empty/error."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _COMPLETE_TAGS
         examples = _ex(
             "SELECT llm.main.ai_complete('Write a haiku about DuckDB')", "Complete a prompt with the default model"
         )
+        tags = {**_COMPLETE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -299,11 +299,11 @@ class AiCompleteModel(ScalarFunction):
         description = "LLM text completion for each prompt row with an explicit provider/model."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _COMPLETE_TAGS
         examples = _ex(
             "SELECT llm.main.ai_complete('Summarize DuckDB in one line', 'ollama/llama3.2')",
             "Complete a prompt with an explicit provider/model",
         )
+        tags = {**_COMPLETE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -428,11 +428,11 @@ class AiCompleteDetails(ScalarFunction):
         description = "LLM completion returning a STRUCT of text + model + token usage + finish reason."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _DETAILS_TAGS
         examples = _ex(
             "SELECT llm.main.ai_complete_details('Explain MVCC in one sentence').text",
             "Completion with token/metadata envelope",
         )
+        tags = {**_DETAILS_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -472,11 +472,11 @@ class AiCompleteDetailsModel(ScalarFunction):
         description = "LLM completion (explicit model) returning a STRUCT of text + model + usage + finish reason."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _DETAILS_TAGS
         examples = _ex(
             "SELECT llm.main.ai_complete_details('Explain MVCC', 'openrouter/anthropic/claude-sonnet-5').output_tokens",
             "Completion details with an explicit provider/model",
         )
+        tags = {**_DETAILS_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -614,11 +614,11 @@ class AiCompleteImage(ScalarFunction):
         description = "Multimodal LLM completion over a text prompt + an image BLOB (default model)."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _IMAGE_TAGS
         examples = _ex(
             "SELECT llm.main.ai_complete_image('What is in this image?', '\x89PNG'::BLOB)",
             "Describe an image column with the default model",
         )
+        tags = {**_IMAGE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -662,11 +662,11 @@ class AiCompleteImageModel(ScalarFunction):
         description = "Multimodal LLM completion over a text prompt + an image BLOB with an explicit model."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _IMAGE_TAGS
         examples = _ex(
             "SELECT llm.main.ai_complete_image('Describe it', '\x89PNG'::BLOB, 'openai/gpt-4o')",
             "Describe an image with an explicit vision model",
         )
+        tags = {**_IMAGE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -814,11 +814,11 @@ class AiClassify(ScalarFunction):
         description = "Classify text into a subset of the given categories; returns STRUCT{labels LIST<VARCHAR>}."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _CLASSIFY_TAGS
         examples = _ex(
             "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels",
             "Classify text against a category list",
         )
+        tags = {**_CLASSIFY_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -863,12 +863,12 @@ class AiClassifyModel(ScalarFunction):
         description = "Classify text into a subset of the given categories with an explicit provider/model."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _CLASSIFY_TAGS
         examples = _ex(
             "SELECT llm.main.ai_classify(t, ['billing','bug'], 'ollama/llama3.2').labels "
             "FROM (VALUES ('my card was declined')) AS x(t)",
             "Classify with an explicit provider/model",
         )
+        tags = {**_CLASSIFY_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -992,11 +992,11 @@ class AiFilter(ScalarFunction):
         description = "Evaluate a natural-language predicate over text; returns BOOLEAN (NULL on empty/error)."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _FILTER_TAGS
         examples = _ex(
             "SELECT llm.main.ai_filter('the text is a question', 'How do I reset my password?')",
             "Boolean predicate over text",
         )
+        tags = {**_FILTER_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1038,12 +1038,12 @@ class AiFilterModel(ScalarFunction):
         description = "Evaluate a natural-language predicate over text with an explicit model; returns BOOLEAN."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _FILTER_TAGS
         examples = _ex(
             "SELECT llm.main.ai_filter('mentions a refund', body, 'ollama/llama3.2') "
             "FROM (VALUES ('Please refund my order')) AS x(body)",
             "Boolean predicate with an explicit provider/model",
         )
+        tags = {**_FILTER_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1191,11 +1191,11 @@ class AiExtract(ScalarFunction):
         description = "Extract structured JSON from text per a JSON-Schema string; returns a JSON VARCHAR."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _EXTRACT_TAGS
         examples = _ex(
             'SELECT llm.main.ai_extract(\'Bob is 42\', \'{"type":"object","properties":{"age":{"type":"integer"}}}\')',
             "Extract fields as JSON per a schema",
         )
+        tags = {**_EXTRACT_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1237,12 +1237,12 @@ class AiExtractModel(ScalarFunction):
         description = "Extract structured JSON from text per a JSON-Schema string with an explicit model."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _EXTRACT_TAGS
         examples = _ex(
             "SELECT llm.main.ai_extract(t, '{\"type\":\"object\"}', 'ollama/llama3.2') "
             "FROM (VALUES ('Bob is 42')) AS x(t)",
             "Extract JSON with an explicit provider/model",
         )
+        tags = {**_EXTRACT_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1399,11 +1399,11 @@ class AiSentiment(ScalarFunction):
         description = "Analyse sentiment; returns STRUCT{overall, categories LIST<STRUCT{name, sentiment}>}."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _SENTIMENT_TAGS
         examples = _ex(
             "SELECT llm.main.ai_sentiment('The food was great but service was slow').overall",
             "Overall + per-aspect sentiment",
         )
+        tags = {**_SENTIMENT_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1443,12 +1443,12 @@ class AiSentimentModel(ScalarFunction):
         description = "Analyse sentiment with an explicit model; returns the sentiment STRUCT."
         categories = ["structured"]
         required_secrets = ["llm"]
-        tags = _SENTIMENT_TAGS
         examples = _ex(
             "SELECT llm.main.ai_sentiment(review, 'ollama/llama3.2').overall "
             "FROM (VALUES ('The food was great but service was slow')) AS x(review)",
             "Sentiment with an explicit provider/model",
         )
+        tags = {**_SENTIMENT_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1560,10 +1560,10 @@ class AiSummarize(ScalarFunction):
         description = "Summarize each text into a short summary (default model); NULL on empty/error."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _SUMMARIZE_TAGS
         examples = _ex(
             "SELECT llm.main.ai_summarize('DuckDB is an in-process SQL OLAP database ...')", "Summarize a text"
         )
+        tags = {**_SUMMARIZE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1603,12 +1603,12 @@ class AiSummarizeModel(ScalarFunction):
         description = "Summarize each text into a short summary with an explicit provider/model."
         categories = ["completion"]
         required_secrets = ["llm"]
-        tags = _SUMMARIZE_TAGS
         examples = _ex(
             "SELECT llm.main.ai_summarize(body, 'ollama/llama3.2') "
             "FROM (VALUES ('DuckDB is an in-process OLAP database.')) AS x(body)",
             "Summarize with an explicit provider/model",
         )
+        tags = {**_SUMMARIZE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1752,8 +1752,8 @@ class AiCountTokens(ScalarFunction):
         name = "ai_count_tokens"
         description = "Count tokens per text with a local tiktoken tokenizer (no network); BIGINT."
         categories = ["utility"]
-        tags = _COUNT_TOKENS_TAGS
         examples = _ex("SELECT llm.main.ai_count_tokens('the quick brown fox')", "Count the tokens in a text")
+        tags = {**_COUNT_TOKENS_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1773,11 +1773,11 @@ class AiCountTokensModel(ScalarFunction):
         name = "ai_count_tokens"
         description = "Count tokens per text with the tokenizer for an explicit model (local, no network); BIGINT."
         categories = ["utility"]
-        tags = _COUNT_TOKENS_TAGS
         examples = _ex(
             "SELECT llm.main.ai_count_tokens('the quick brown fox', 'openai/gpt-4o')",
             "Count tokens with a specific model's tokenizer",
         )
+        tags = {**_COUNT_TOKENS_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -1897,11 +1897,11 @@ class Prompt(ScalarFunction):
         name = "prompt"
         description = "Safely substitute positional args into a template ({} / {n}); pure, no model call."
         categories = ["utility"]
-        tags = _PROMPT_TAGS
         examples = _ex(
             "SELECT llm.main.prompt('Translate {} into {}', 'hello', 'French')",
             "Fill a template with positional arguments",
         )
+        tags = {**_PROMPT_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -2002,8 +2002,8 @@ class AiEmbed(ScalarFunction):
             f"({models.DEFAULT_MODEL}); keyless. NULL/empty -> NULL."
         )
         categories = ["embedding"]
-        tags = _EMBED_TAGS
         examples = _ex("SELECT len(llm.main.ai_embed('hello world'))", "Embed text into a FLOAT[] vector (keyless)")
+        tags = {**_EMBED_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -2023,11 +2023,11 @@ class AiEmbedModel(ScalarFunction):
         name = "ai_embed"
         description = "Embed text into a FLOAT[] with an explicit local model (see the README for names); keyless."
         categories = ["embedding"]
-        tags = _EMBED_TAGS
         examples = _ex(
             "SELECT len(llm.main.ai_embed('hello world', 'BAAI/bge-base-en-v1.5'))",
             "Embed with an explicitly chosen local model",
         )
+        tags = {**_EMBED_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -2089,11 +2089,11 @@ class AiSimilarity(ScalarFunction):
         name = "ai_similarity"
         description = "Cosine similarity of two FLOAT[] vectors, in [-1, 1] (pure arithmetic); NULL on mismatch."
         categories = ["embedding"]
-        tags = _SIMILARITY_TAGS
         examples = _ex(
             "SELECT llm.main.ai_similarity(llm.main.ai_embed('cat'), llm.main.ai_embed('kitten'))",
             "Cosine similarity between two embeddings",
         )
+        tags = {**_SIMILARITY_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -2132,11 +2132,11 @@ class AiSimilarityText(ScalarFunction):
         name = "ai_similarity"
         description = "Cosine similarity of two texts: embed both locally (keyless) and compare; DOUBLE in [-1, 1]."
         categories = ["embedding"]
-        tags = _SIMILARITY_TAGS
         examples = _ex(
             "SELECT ROUND(llm.main.ai_similarity('cat', 'kitten'), 3) AS score",
             "Cosine similarity of two texts (embedded locally)",
         )
+        tags = {**_SIMILARITY_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -2157,11 +2157,11 @@ class AiSimilarityTextModel(ScalarFunction):
         name = "ai_similarity"
         description = "Cosine similarity of two texts with an explicit local embedding model; DOUBLE in [-1, 1]."
         categories = ["embedding"]
-        tags = _SIMILARITY_TAGS
         examples = _ex(
             "SELECT ROUND(llm.main.ai_similarity('cat', 'kitten', 'BAAI/bge-small-en-v1.5'), 3) AS score",
             "Cosine similarity of two texts with a chosen model",
         )
+        tags = {**_SIMILARITY_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def compute(
@@ -2200,3 +2200,7 @@ SCALAR_FUNCTIONS: list[type] = [
     AiSimilarityText,
     AiSimilarityTextModel,
 ]
+
+
+# Every overload of a name must advertise all overloads example SQL (see meta docs).
+meta.apply_combined_example_queries(SCALAR_FUNCTIONS)

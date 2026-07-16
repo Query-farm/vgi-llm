@@ -325,7 +325,6 @@ class AiAgg(_AiAggBase):
         categories = ["aggregate"]
         null_handling = NullHandling.DEFAULT
         required_secrets = ["llm"]
-        tags = _AI_AGG_TAGS
         examples = [
             FunctionExample(
                 sql=(
@@ -335,6 +334,7 @@ class AiAgg(_AiAggBase):
                 description="Reduce a group's rows to one answer with a task",
             )
         ]
+        tags = {**_AI_AGG_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def update(
@@ -419,13 +419,13 @@ class AiSummarizeAgg(_AiAggBase):
         categories = ["aggregate"]
         null_handling = NullHandling.DEFAULT
         required_secrets = ["llm"]
-        tags = _AI_SUMMARIZE_AGG_TAGS
         examples = [
             FunctionExample(
                 sql=("SELECT llm.main.ai_summarize_agg(note) FROM (VALUES ('login failed'), ('disk full')) AS t(note)"),
                 description="Summarize all of a group's rows into one summary",
             )
         ]
+        tags = {**_AI_SUMMARIZE_AGG_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
     def update(
@@ -456,3 +456,6 @@ class AiSummarizeAgg(_AiAggBase):
 
 
 AGGREGATE_FUNCTIONS: list[type] = [AiAgg, AiSummarizeAgg]
+
+
+meta.apply_combined_example_queries(AGGREGATE_FUNCTIONS)
