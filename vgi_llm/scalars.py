@@ -4,11 +4,16 @@
 
 Each function maps a column of input to a column of output, one provider call
 per row (fanned across a bounded thread pool by :mod:`vgi_llm.engine`). The
-contract everywhere is the same and never crashes a scan:
+contract everywhere is the same, and it is fail-loud, not fail-quiet:
 
 - NULL or empty/whitespace-only input yields a NULL output row (no model call).
-- A per-row provider failure -- including a missing API key -- yields a NULL row.
-- STRUCT-returning functions parse the model's JSON; a parse failure -> NULL row.
+- A provider failure -- including a missing API key -- **raises** a DuckDB error;
+  it is never swallowed to NULL. (The keyless ``ai_embed`` / ``ai_similarity`` /
+  ``prompt`` / ``ai_count_tokens`` make no provider call, so they cannot fail this
+  way.)
+- STRUCT-returning functions parse the model's JSON; an unparseable reply
+  **raises** (via ``_parse_or_raise``). ``ai_filter`` is the one exception: an
+  unparseable yes/no answer coerces to NULL rather than raising.
 
 Scalar functions are **positional-only** in VGI/DuckDB (the ``name := value``
 named-argument syntax is a table-function feature), so the optional ``model``
@@ -149,17 +154,18 @@ _COMPLETE_TAGS = meta.object_tags(
         "**When to use.** Free-form generation, rewriting, or answering over a "
         "column of prompts. For a structured result use `ai_classify` / "
         "`ai_extract` / `ai_sentiment`; for a yes/no filter use `ai_filter`.\n\n"
-        "**Input/output.** Input: one VARCHAR prompt per row. Output: one "
-        "VARCHAR per row. NULL/empty prompt -> NULL; a provider error or missing "
-        "key -> NULL (never an error). Calls are fanned across a bounded thread "
-        "pool, so a wide column completes concurrently."
+        "**Input/output.** Input: one `VARCHAR` prompt per row. Output: one "
+        "`VARCHAR` per row. NULL/empty prompt -> NULL (no model call); a provider "
+        "error or a missing key **raises** a DuckDB error -- it is not swallowed "
+        "to NULL. Calls are fanned across a bounded thread pool, so a wide column "
+        "completes concurrently."
     ),
     doc_md=(
         "# ai_complete\n\n"
         "Per-row LLM text completion returning `VARCHAR`.\n\n"
         "## Notes\n\n"
         "- The model argument is positional; omit it for the default provider.\n"
-        "- NULL/empty input and any provider failure return NULL.\n"
+        "- NULL/empty input -> NULL; a provider failure raises a DuckDB error.\n"
         "- Configure keys with an `llm` secret or provider env vars."
     ),
     keywords=[
@@ -253,7 +259,7 @@ class AiComplete(ScalarFunction):
         """Declarative metadata for ``ai_complete(prompt)``."""
 
         name = "ai_complete"
-        description = "LLM text completion for each prompt row (default model); NULL on empty/error."
+        description = "LLM text completion for each prompt row (default model); NULL on empty input, errors raise."
         categories = ["completion"]
         required_secrets = ["llm"]
         examples = _ex(
@@ -342,23 +348,23 @@ _DETAILS_TAGS = meta.object_tags(
     title="AI Completion With Details",
     doc_llm=(
         "## ai_complete_details(prompt[, model])\n\n"
-        "Like `ai_complete`, but returns a STRUCT envelope with the reply plus "
+        "Like `ai_complete`, but returns a `STRUCT` envelope with the reply plus "
         "provider metadata: `{text VARCHAR, model VARCHAR, input_tokens BIGINT, "
         "output_tokens BIGINT, finish_reason VARCHAR}`. Use it when you need the "
         "resolved model name, token accounting (cost/telemetry), or the stop "
         "reason alongside the text.\n\n"
-        "**Input/output.** Input: one VARCHAR prompt per row (+ optional model). "
-        "Output: one STRUCT per row; NULL/empty prompt or a provider failure -> "
-        "NULL row. Read a field with dot access, e.g. "
-        "`ai_complete_details(p).output_tokens`."
+        "**Input/output.** Input: one `VARCHAR` prompt per row (+ optional model). "
+        "Output: one `STRUCT` per row; NULL/empty prompt -> NULL row (no model "
+        "call). A provider failure **raises** a DuckDB error. Read a field with "
+        "dot access, e.g. `ai_complete_details(p).output_tokens`."
     ),
     doc_md=(
         "# ai_complete_details\n\n"
-        "LLM completion returning a STRUCT with the text and token/metadata "
+        "LLM completion returning a `STRUCT` with the text and token/metadata "
         "envelope.\n\n"
         "## Notes\n\n"
         "- Fields: `text`, `model`, `input_tokens`, `output_tokens`, `finish_reason`.\n"
-        "- NULL/empty input and any provider failure return a NULL struct."
+        "- NULL/empty input -> NULL struct; a provider failure raises a DuckDB error."
     ),
     keywords=[
         "ai",
@@ -519,17 +525,18 @@ _IMAGE_TAGS = meta.object_tags(
         "(a `BLOB` of PNG/JPEG/GIF/WebP bytes) to a vision-capable model and "
         "return the text reply as `VARCHAR`. Use it to caption, describe, OCR, or "
         "answer questions about images stored in a column.\n\n"
-        "**Input/output.** Inputs: VARCHAR prompt, BLOB image, optional model. "
-        "Output: one VARCHAR per row. NULL/empty prompt or NULL image -> NULL; a "
-        "provider failure (or a non-vision model) -> NULL. The media type is "
-        "sniffed from the image's magic bytes."
+        "**Input/output.** Inputs: `VARCHAR` prompt, `BLOB` image, optional model. "
+        "Output: one `VARCHAR` per row. NULL/empty prompt or NULL image -> NULL "
+        "(no model call); a provider failure (including a non-vision model or a "
+        "missing key) **raises** a DuckDB error. The media type is sniffed from "
+        "the image's magic bytes."
     ),
     doc_md=(
         "# ai_complete_image\n\n"
-        "Multimodal LLM completion over a text prompt + an image BLOB.\n\n"
+        "Multimodal LLM completion over a text prompt + an image `BLOB`.\n\n"
         "## Notes\n\n"
-        "- The image is a BLOB (PNG/JPEG/GIF/WebP); media type is auto-detected.\n"
-        "- Requires a vision-capable model; NULL on any failure."
+        "- The image is a `BLOB` (PNG/JPEG/GIF/WebP); media type is auto-detected.\n"
+        "- Requires a vision-capable model; NULL input -> NULL, a provider failure raises."
     ),
     keywords=[
         "ai",
@@ -717,17 +724,18 @@ _CLASSIFY_TAGS = meta.object_tags(
         "**When to use.** Route/triage a column of text against a fixed taxonomy "
         "(support tickets, intents, topics). For a boolean keep/drop decision use "
         "`ai_filter`; for free-form fields use `ai_extract`.\n\n"
-        "**Input/output.** Inputs: VARCHAR text, LIST<VARCHAR> categories, "
-        "optional model. Output: STRUCT with a `labels` list. NULL/empty input or "
-        "a provider/parse failure -> NULL."
+        "**Input/output.** Inputs: `VARCHAR` text, `LIST<VARCHAR>` categories, "
+        "optional model. Output: `STRUCT` with a `labels` list. NULL/empty input -> "
+        "NULL (no model call); a provider failure, or a reply that is not the "
+        "expected JSON, **raises** a DuckDB error."
     ),
     doc_md=(
         "# ai_classify\n\n"
         "Multi-label text classification against a category list, returning "
         "`STRUCT{labels LIST<VARCHAR>}`.\n\n"
         "## Notes\n\n"
-        "- `categories` is a LIST<VARCHAR>; labels are drawn from it.\n"
-        "- NULL/empty input or an unparseable reply returns NULL."
+        "- `categories` is a `LIST<VARCHAR>`; labels are drawn from it.\n"
+        "- NULL/empty input -> NULL; a provider failure or unparseable reply raises."
     ),
     keywords=[
         "ai",
@@ -919,9 +927,10 @@ _FILTER_TAGS = meta.object_tags(
         "**When to use.** Semantic filtering that a `LIKE`/regex can't express "
         '("is this review angry?", "does this mention a refund?"). For the '
         "matched labels use `ai_classify`; for extracted fields use `ai_extract`.\n\n"
-        "**Input/output.** Inputs: VARCHAR predicate, VARCHAR text, optional "
-        "model. Output: BOOLEAN. NULL/empty input or an unparseable answer -> "
-        "NULL (excluded by a `WHERE`)."
+        "**Input/output.** Inputs: `VARCHAR` predicate, `VARCHAR` text, optional "
+        "model. Output: `BOOLEAN`. NULL/empty input, or an answer with no clear "
+        "yes/no, -> NULL (excluded by a `WHERE`); a provider failure or missing "
+        "key **raises** a DuckDB error."
     ),
     doc_md=(
         "# ai_filter\n\n"
@@ -989,7 +998,7 @@ class AiFilter(ScalarFunction):
         """Declarative metadata for ``ai_filter(predicate, input)``."""
 
         name = "ai_filter"
-        description = "Evaluate a natural-language predicate over text; returns BOOLEAN (NULL on empty/error)."
+        description = "Evaluate a natural-language predicate over text; BOOLEAN, NULL on empty/unclear, errors raise."
         categories = ["structured"]
         required_secrets = ["llm"]
         examples = _ex(
@@ -1092,10 +1101,11 @@ _EXTRACT_TAGS = meta.object_tags(
         "**When to use.** Pull typed fields (names, dates, amounts, nested "
         "objects) out of unstructured text. For a fixed label set use "
         "`ai_classify`; for a boolean use `ai_filter`.\n\n"
-        "**Input/output.** Inputs: VARCHAR text, a constant JSON-Schema string, "
-        "optional model. Output: a JSON VARCHAR (or NULL on empty input / "
-        "provider failure / non-JSON reply). The schema is sent to the provider "
-        "as a structured-output constraint when supported."
+        "**Input/output.** Inputs: `VARCHAR` text, a constant JSON-Schema string, "
+        "optional model. Output: a JSON `VARCHAR`. NULL/empty input -> NULL (no "
+        "model call); a provider failure, or a reply that is not a JSON object, "
+        "**raises** a DuckDB error. The schema is sent to the provider as a "
+        "structured-output constraint when supported."
     ),
     doc_md=(
         "# ai_extract\n\n"
@@ -1109,7 +1119,7 @@ _EXTRACT_TAGS = meta.object_tags(
         "```\n\n"
         "## Notes\n\n"
         "- `response_format` is a JSON-Schema string (a positional constant).\n"
-        "- Output is a JSON string; NULL on empty input or an unparseable reply."
+        "- Output is a JSON string; NULL/empty input -> NULL, an unparseable reply raises."
     ),
     keywords=[
         "ai",
@@ -1289,17 +1299,18 @@ _SENTIMENT_TAGS = meta.object_tags(
         "`categories` breaks sentiment down by aspect the model detects (e.g. "
         "price, service). The model is asked for strict JSON; an unparseable "
         "reply -> NULL row.\n\n"
-        "**Input/output.** Input: one VARCHAR per row (+ optional model). "
-        "Output: one sentiment STRUCT per row; NULL/empty input or a "
-        "provider/parse failure -> NULL."
+        "**Input/output.** Input: one `VARCHAR` per row (+ optional model). "
+        "Output: one sentiment `STRUCT` per row; NULL/empty input -> NULL (no "
+        "model call). A provider failure, or a reply that is not the expected "
+        "JSON, **raises** a DuckDB error."
     ),
     doc_md=(
         "# ai_sentiment\n\n"
-        "Aspect-based sentiment as a STRUCT of an overall label plus per-category "
+        "Aspect-based sentiment as a `STRUCT` of an overall label plus per-category "
         "breakdown.\n\n"
         "## Notes\n\n"
         "- `overall` in {positive, negative, neutral, mixed}.\n"
-        "- `categories` is a per-aspect list; NULL on empty input or parse failure."
+        "- `categories` is a per-aspect list; NULL/empty input -> NULL, an unparseable reply raises."
     ),
     keywords=[
         "ai",
@@ -1491,16 +1502,16 @@ _SUMMARIZE_TAGS = meta.object_tags(
         "`VARCHAR`. One row in, one summary out. For summarising *across* rows of "
         "a group (map-reduce over a whole column) use the `ai_summarize_agg` "
         "aggregate instead.\n\n"
-        "**Input/output.** Input: one VARCHAR per row (+ optional model). "
-        "Output: one VARCHAR summary per row. NULL/empty input or a provider "
-        "failure -> NULL."
+        "**Input/output.** Input: one `VARCHAR` per row (+ optional model). "
+        "Output: one `VARCHAR` summary per row. NULL/empty input -> NULL (no "
+        "model call); a provider failure **raises** a DuckDB error."
     ),
     doc_md=(
         "# ai_summarize\n\n"
         "Per-row LLM summarization returning `VARCHAR`.\n\n"
         "## Notes\n\n"
         "- Summarises one row at a time; use `ai_summarize_agg` across a group.\n"
-        "- NULL/empty input or any provider failure returns NULL."
+        "- NULL/empty input -> NULL; a provider failure raises a DuckDB error."
     ),
     keywords=[
         "ai",
@@ -1557,7 +1568,7 @@ class AiSummarize(ScalarFunction):
         """Declarative metadata for ``ai_summarize(input)``."""
 
         name = "ai_summarize"
-        description = "Summarize each text into a short summary (default model); NULL on empty/error."
+        description = "Summarize each text into a short summary (default model); NULL on empty input, errors raise."
         categories = ["completion"]
         required_secrets = ["llm"]
         examples = _ex(
@@ -1654,7 +1665,7 @@ _COUNT_TOKENS_TAGS = meta.object_tags(
         "**exactly**; other models (Anthropic, Ollama, ...) use `o200k_base`, a "
         "strong cross-model estimate. Use it to budget prompts, chunk long text, "
         "or estimate cost before calling a model.\n\n"
-        "**Input/output.** Input: one VARCHAR per row. Output: BIGINT token count "
+        "**Input/output.** Input: one `VARCHAR` per row. Output: `BIGINT` token count "
         "(>= 1 for non-empty text). NULL/empty input -> NULL. For exact Anthropic "
         "counts use the provider's own token-count API."
     ),
@@ -1863,8 +1874,8 @@ _PROMPT_TAGS = meta.object_tags(
         "etc. Unlike Python `str.format`, it rejects format specs and "
         "attribute/index access, so a template can never traverse object "
         "attributes or trigger a giant-width allocation.\n\n"
-        "**Input/output.** Inputs: a VARCHAR `template` and >= 1 further column "
-        "values (any type). Output: one VARCHAR per row. A NULL template, a "
+        "**Input/output.** Inputs: a `VARCHAR` `template` and >= 1 further column "
+        "values (any type). Output: one `VARCHAR` per row. A NULL template, a "
         "malformed placeholder, or an out-of-range index -> NULL row."
     ),
     doc_md=(
@@ -1938,7 +1949,7 @@ _EMBED_TAGS = meta.object_tags(
         "**When to use.** Semantic search, RAG, clustering, and dedup inside SQL: "
         "embed a corpus once, embed a query, and rank rows by `ai_similarity`. "
         "Pairs naturally with the DuckDB VSS extension.\n\n"
-        "**Input/output.** Input: one VARCHAR per row (+ optional model). "
+        "**Input/output.** Input: one `VARCHAR` per row (+ optional model). "
         "Output: one `FLOAT[]` per row; NULL/empty text -> NULL vector."
     ),
     doc_md=(
@@ -2048,12 +2059,12 @@ _SIMILARITY_TAGS = meta.object_tags(
     doc_llm=(
         "## ai_similarity(a, b)\n\n"
         "Cosine similarity of two `FLOAT[]` vectors (typically from `ai_embed`), "
-        "a DOUBLE in `[-1, 1]` where 1 means identical direction. Pure arithmetic "
+        "a `DOUBLE` in `[-1, 1]` where 1 means identical direction. Pure arithmetic "
         "-- **no model, no key, no I/O** -- so it is cheap over large joins.\n\n"
         "**When to use.** Rank or threshold embedding pairs: "
         "`ORDER BY ai_similarity(ai_embed(q), ai_embed(doc)) DESC` for retrieval, "
         "or `WHERE ai_similarity(...) > 0.8` for near-duplicate detection.\n\n"
-        "**Input/output.** Inputs: two `FLOAT[]` vectors. Output: DOUBLE. NULL, "
+        "**Input/output.** Inputs: two `FLOAT[]` vectors. Output: `DOUBLE`. NULL, "
         "empty, or length-mismatched pairs -> NULL (never an error)."
     ),
     doc_md=(

@@ -283,10 +283,9 @@ _AI_AGG_TAGS = meta.object_tags(
         "**When to use.** One summary, theme, or answer per category over all its "
         "rows -- grouping a text column and applying a task such as listing the top "
         "complaints to each group. For a per-row answer use `ai_complete`; for a "
-        "plain summary-per-group use `ai_summarize_agg`. See the attached example "
-        "queries.\n\n"
-        "**Input/output.** Inputs: a VARCHAR column and a constant `task` string. "
-        "Output: one VARCHAR per group. A group with no rows yields NULL; a "
+        "plain summary-per-group use `ai_summarize_agg`.\n\n"
+        "**Input/output.** Inputs: a `VARCHAR` column and a constant `task` string. "
+        "Output: one `VARCHAR` per group. A group with no rows yields NULL; a "
         "provider failure is raised as a DuckDB error. Keys come from a CREATE "
         "SECRET (TYPE llm) or provider env vars (or keyless Ollama)."
     ),
@@ -378,9 +377,9 @@ _AI_SUMMARIZE_AGG_TAGS = meta.object_tags(
         "summarize task: rows are buffered and reduced via chunked map-reduce, so "
         "a group larger than the model's context window still yields one summary.\n\n"
         '**When to use.** "One summary per category over all its rows" -- grouping a '
-        "text column and summarizing each group (see the attached example queries). For a custom "
+        "text column and summarizing each group. For a custom "
         "instruction use `ai_agg`; for a per-row summary use `ai_summarize`.\n\n"
-        "**Input/output.** Input: a VARCHAR column. Output: one VARCHAR summary per "
+        "**Input/output.** Input: a `VARCHAR` column. Output: one `VARCHAR` summary per "
         "group. An empty group yields NULL; a provider failure is raised. Keys come "
         "from a CREATE SECRET (TYPE llm) or env vars (or keyless Ollama)."
     ),

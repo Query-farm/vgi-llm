@@ -49,10 +49,10 @@ _CATALOG_DOC_LLM = (
     "in-process (fastembed/ONNX) with NO API key, so semantic search / RAG works out of the box; add "
     "one OpenRouter key to unlock hundreds of cloud models, or point at a local Ollama daemon for "
     "keyless local completions. The model is chosen per call by a provider-prefixed string "
-    "(anthropic/…, openrouter/…, openai/…, ollama/…) or a bare id for the default provider. Every "
-    "function degrades to NULL rather than erroring, so it is safe inside a larger scan. List this "
-    "catalog's schema to discover the completion, structured-output, embedding, utility, and "
-    "aggregate functions it provides."
+    "(anthropic/…, openrouter/…, openai/…, ollama/…) or a bare id for the default provider. The "
+    "error contract is fail-loud: empty/NULL input maps to NULL (no model call), but a provider "
+    "error or a missing key raises a DuckDB error rather than being silently masked -- so a broken "
+    "key surfaces immediately instead of quietly nulling a whole column."
 )
 
 _CATALOG_DOC_MD = (
@@ -74,7 +74,7 @@ _CATALOG_DOC_MD = (
     "```\n\n"
     "## Notes\n\n"
     "- The model argument routes by prefix (`anthropic/…`, `openrouter/…`, `openai/…`, `ollama/…`).\n"
-    "- Every function returns NULL rather than erroring on empty input or a provider failure.\n"
+    "- Empty/NULL input maps to NULL; a provider error or missing key raises a DuckDB error.\n"
     "- Embeddings run locally (fastembed/ONNX); pair with the DuckDB VSS extension."
 )
 
@@ -368,8 +368,9 @@ _SCHEMA_TAGS = {
         "extraction, sentiment), keyless local embeddings and cosine similarity for semantic "
         "search / RAG, group-level LLM map-reduce aggregates, and pure utilities (prompt templating "
         "and local token estimation). Completions route to a pluggable provider by a model-prefix "
-        "string; embeddings and similarity run in-process with no key. List the schema to see the "
-        "exact functions and signatures."
+        "string; embeddings and similarity run in-process with no key. Reach for the keyless "
+        "embedding/similarity pair first (semantic search works with no setup), add a provider key "
+        "only when you need generative completion or structured extraction."
     ),
     "vgi.doc_md": (
         "# llm.main\n\n"
@@ -384,7 +385,7 @@ _SCHEMA_TAGS = {
         "SELECT ai_similarity(ai_embed('cat'), ai_embed('kitten')) AS score;\n"
         "```\n\n"
         "## Notes\n\n"
-        "- Every function returns NULL rather than erroring on empty input or provider failure.\n"
+        "- Empty/NULL input maps to NULL; a provider error or missing key raises a DuckDB error.\n"
         "- Embeddings are keyless; completions need a key (or keyless Ollama)."
     ),
     "domain": "artificial-intelligence",
