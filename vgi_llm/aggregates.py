@@ -210,10 +210,17 @@ class _AiAggBase(AggregateFunction[AggState]):
         """Capture the resolved ``llm`` secret + ``llm_*`` settings at bind.
 
         Aggregates only have real secrets/settings in scope at bind, so we stash
-        them (keyed by the const args) for ``finalize`` to reuse. The ``llm``
-        secret is declared in ``Meta.required_secrets``, so the framework has
-        already resolved it by the time ``on_bind`` runs; we read it through the
-        public :meth:`SecretsAccessor.get` API.
+        them (keyed by the const args) for ``finalize`` to reuse.
+
+        The secret is read from :meth:`SecretsAccessor.to_dict`, which only ever
+        reports what the framework **already** resolved. Do NOT use
+        ``params.secrets.get("llm")`` here: on a miss (no ``CREATE SECRET (TYPE
+        llm, ...)`` -- the normal case for env-var keys and keyless Ollama) it
+        registers a pending two-phase lookup, and ``aggregate_bind`` raises
+        ``NotImplementedError`` because aggregates cannot do a bind retry. That
+        made *every* ``ai_agg`` / ``ai_summarize_agg`` call fail at bind unless a
+        DuckDB secret happened to exist. A missing secret is not an error here --
+        provider env vars and keyless Ollama are supported fallbacks.
 
         Args:
             params: The aggregate bind parameters.
@@ -223,7 +230,8 @@ class _AiAggBase(AggregateFunction[AggState]):
             The bind response with the single ``result`` output column.
         """
         secret: dict[str, Any] | None = None
-        entry = params.secrets.get("llm")
+        resolved = params.secrets.to_dict()
+        entry = resolved.get("llm") or next(iter(resolved.of_type("llm")), None)
         if entry:
             secret = {k: (v.as_py() if hasattr(v, "as_py") else v) for k, v in entry.items()}
         _BIND_CONFIG[_bind_key(params.args)] = (secret, _settings_from_bind(params.settings))

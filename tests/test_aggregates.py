@@ -6,6 +6,7 @@ import types
 
 import pyarrow as pa
 import pytest
+from vgi.table_function import SecretsAccessor
 
 from tests.fake_provider import FakeProvider, install
 from vgi_llm import aggregates, engine
@@ -16,6 +17,18 @@ from vgi_llm.providers import ProviderError
 def _params(task: str = "") -> types.SimpleNamespace:
     positional = (pa.scalar(task),) if task else ()
     return types.SimpleNamespace(args=types.SimpleNamespace(positional=positional))
+
+
+def _secrets_accessor(llm_fields: dict[str, str] | None) -> SecretsAccessor:
+    """Build a real framework SecretsAccessor from a first-pass secrets batch.
+
+    Mirrors what ``aggregate_bind`` constructs: ``is_retry`` is False (aggregates
+    get no two-phase retry), and an unconfigured secret means *no column at all*.
+    """
+    if llm_fields is None:
+        return SecretsAccessor(None)
+    struct = pa.struct([(k, pa.string()) for k in llm_fields])
+    return SecretsAccessor(pa.record_batch({"llm": pa.array([llm_fields], type=struct)}))
 
 
 class TestState:
@@ -111,15 +124,9 @@ class TestSecretCapture:
 
         monkeypatch.setattr(engine, "resolve_provider", resolver)
 
-        # Use the real framework SecretsAccessor so we validate on_bind's public
-        # `secrets.get("llm")` path (not a private attribute).
-        from vgi.table_function import SecretsAccessor
-
-        secrets_accessor = SecretsAccessor.__new__(SecretsAccessor)
-        secrets_accessor._unscoped = {"llm": {"anthropic_api_key": pa.scalar("sk-x")}}
-        secrets_accessor._scoped = []
-        secrets_accessor._is_retry = True
-        secrets_accessor._pending_lookups = []
+        # Use the real framework SecretsAccessor, built from a real secrets
+        # RecordBatch exactly as the framework builds it at bind.
+        secrets_accessor = _secrets_accessor({"anthropic_api_key": "sk-x"})
 
         args = types.SimpleNamespace(positional=(pa.scalar("secret-capture-task"),))
         bind_params = types.SimpleNamespace(secrets=secrets_accessor, args=args, settings=None)
@@ -133,3 +140,22 @@ class TestSecretCapture:
         )
         assert out.column("result").to_pylist() == ["OK"]
         assert captured["secrets"] == {"llm": {"anthropic_api_key": "sk-x"}}
+        # Reading a *present* secret must not request resolution either.
+        assert secrets_accessor.needs_resolution is False
+
+    @pytest.mark.parametrize("agg", [AiAgg, AiSummarizeAgg])
+    def test_bind_without_secret_requests_no_resolution(self, agg: type) -> None:
+        # No CREATE SECRET (TYPE llm, ...) is the normal case: keys come from
+        # provider env vars, or Ollama runs keyless. on_bind must NOT register a
+        # pending secret lookup -- aggregate_bind cannot do the two-phase retry
+        # and raises NotImplementedError, which used to break every ai_agg call.
+        secrets_accessor = _secrets_accessor(None)
+        args = types.SimpleNamespace(positional=(pa.scalar("no-secret-task"),))
+        bind_params = types.SimpleNamespace(secrets=secrets_accessor, args=args, settings=None)
+
+        agg.on_bind(bind_params)
+
+        assert secrets_accessor.needs_resolution is False
+        assert secrets_accessor.pending_lookups == []
+        # ...and finalize falls back to env vars / keyless (no captured secret).
+        assert aggregates._BIND_CONFIG[aggregates._bind_key(args)][0] is None

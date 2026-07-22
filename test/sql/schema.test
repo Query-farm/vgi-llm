@@ -58,6 +58,26 @@ SELECT column_type LIKE 'STRUCT%' FROM (DESCRIBE SELECT ai.ai_sentiment('x') AS 
 ----
 true
 
+# ---- Aggregates BIND with no `llm` secret configured ------------------------
+#
+# Regression guard: aggregate_bind cannot do a two-phase secret retry, so if
+# on_bind asks the SecretsAccessor for a secret that isn't there it registers a
+# pending lookup and the framework raises NotImplementedError. That made EVERY
+# ai_agg / ai_summarize_agg call fail at bind unless a CREATE SECRET (TYPE llm)
+# happened to exist -- even though env-var keys and keyless Ollama are supported.
+# No secret is created anywhere in this file, so a plain DESCRIBE proves the bind
+# path works without one (DESCRIBE binds only: no provider call, no key needed).
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_agg(c, 'task') AS a FROM (VALUES ('x')) t(c)) WHERE column_name = 'a';
+----
+VARCHAR
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ai.ai_summarize_agg(c) AS a FROM (VALUES ('x')) t(c)) WHERE column_name = 'a';
+----
+VARCHAR
+
 # ---- prompt(): pure positional template substitution (no model) -------------
 
 query T

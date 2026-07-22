@@ -72,10 +72,15 @@ E2E and `vgi-lint` need external tooling (the community `vgi` DuckDB extension /
 ## Gotchas
 
 - Aggregates have secrets/settings **only in `on_bind`** (not in
-  `update`/`finalize`). `_AiAggBase.on_bind` peeks the resolved `llm` secret
-  (`params.secrets._unscoped`, avoiding an unsupported two-phase lookup) and the
-  settings, and stashes them in the process-local `_BIND_CONFIG` keyed by the
+  `update`/`finalize`). `_AiAggBase.on_bind` reads the resolved `llm` secret and
+  the settings, and stashes them in the process-local `_BIND_CONFIG` keyed by the
   const-args; `finalize` reads them back. Env vars remain the fallback.
+  **Read secrets with `params.secrets.to_dict()`, never `params.secrets.get(...)`**
+  — `get()` registers a pending two-phase lookup on a miss, and aggregates get no
+  bind retry, so `aggregate_bind` raises `NotImplementedError`. With no
+  `CREATE SECRET (TYPE llm, …)` (the normal case: env-var keys, keyless Ollama)
+  that broke *every* `ai_agg`/`ai_summarize_agg` call at bind. `test/sql/schema.test`
+  DESCRIBEs both aggregates with no secret configured to guard it.
 - `ai_count_tokens` uses **tiktoken** locally (no network): exact for OpenAI
   models, `o200k_base` estimate elsewhere. Do not add a provider call to it.
 - `ai_extract` returns a JSON `VARCHAR` (parse with DuckDB JSON functions), not a

@@ -92,8 +92,10 @@ jobs:
         run: ./run_tests.sh
 
   # Metadata-quality gate (vgi-lint): scores the worker's catalog/schema/function docs,
-  # tags, categories, per-arg docs, and examples. --no-execute keeps it deterministic;
-  # live behavior is covered by the e2e job. fail-on info = strict.
+  # tags, categories, per-arg docs, and examples, and --execute runs them against the
+  # worker so the gate reaches assurance level L2 (behavioral), not just L1 (structural).
+  # No key is needed: the executable examples are the keyless local-ONNX/pure ones, and a
+  # provider-backed example only has to BIND. fail-on info = strict.
   lint:
     name: metadata quality (vgi-lint)
     runs-on: ubuntu-latest
@@ -114,4 +116,4 @@ jobs:
         run: >
           uvx --prerelease allow --from vgi-lint-check vgi-lint
           "${{ github.workspace }}/bin/vgi-llm-worker"
-          --fail-on info --no-execute
+          --fail-on info --execute

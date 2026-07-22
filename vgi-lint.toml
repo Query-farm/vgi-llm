@@ -7,8 +7,24 @@ fail_on = "info"
 # The keyless legs the linter's VGI911 probe touches (ai_embed / ai_similarity) load a
 # local ONNX model on first use; on a cold cache that download can exceed the default
 # scan window. Warm the model before linting (see run_tests.sh / CI) so this stays snug.
-# The provider-backed functions need a key the linter does not have, so run the metadata
-# gate with --no-execute in CI; live execution is covered by the haybarn e2e job.
 scan_timeout = 60
 timeout = 60
 concurrency = 1
+
+# VGI908 (slow executable example) -- widened from the 5s default, for a one-time
+# cold-load cost only, not to hide a slow query.
+#
+# Measured: against an already-warm worker process the two embedding examples run in
+# 0.01s (embed_dimension) and 0.05s (self_similarity). The wall clock the linter sees is
+# dominated by loading the fastembed ONNX model into a worker process -- ~1.9s for
+# BAAI/bge-small-en-v1.5 and ~2.4s for bge-base from an already-populated disk cache, and
+# a download on a cold one. LlmWorker.run() calls models.warm_up() so each process pays it
+# at spawn rather than inside a query, but a single lint run spawns the worker ~19 times
+# (attach cycles, and the extension fanning a scalar out over several worker instances),
+# so a spawn can land inside the first embedding query and add several seconds to it. That
+# is intrinsic: an ONNX session is process-local and cannot be shared across spawns.
+# Timings are therefore bimodal -- ~0.0s or ~6-9s for the exact same example.
+#
+# 15s stays far below anything a genuinely runaway example would cost (these are
+# single-row, model-resident queries) while absorbing that cold load on a loaded CI box.
+slow_seconds = 15
