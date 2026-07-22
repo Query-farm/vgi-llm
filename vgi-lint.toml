@@ -2,8 +2,6 @@
 select = ["ALL"]
 fail_on = "info"
 
-[tool.vgi-lint-check.options]
-column_comment_min_ratio = 0.8
 
 [tool.vgi-lint-check.execution]
 # The keyless legs the linter's VGI911 probe touches (ai_embed / ai_similarity) load a
