@@ -95,10 +95,15 @@ class AnthropicProvider(BaseProvider):
         }
         if system_parts:
             kwargs["system"] = "\n\n".join(p for p in system_parts if p)
+        # anthropic>=2 no longer types temperature/top_p as messages.create() kwargs;
+        # they still travel in the request body, so pass them through extra_body.
+        sampling: dict[str, float] = {}
         if params.temperature is not None:
-            kwargs["temperature"] = params.temperature
+            sampling["temperature"] = params.temperature
         if params.top_p is not None:
-            kwargs["top_p"] = params.top_p
+            sampling["top_p"] = params.top_p
+        if sampling:
+            kwargs["extra_body"] = sampling
         if params.stop:
             kwargs["stop_sequences"] = list(params.stop)
         if response_format is not None:

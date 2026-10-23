@@ -136,140 +136,71 @@ _EXECUTABLE_EXAMPLES = json.dumps(
     ]
 )
 
+# Agent-suitability suite for `vgi-lint simulate`. Only name/prompt are published (VGI416);
+# the grader-only reference_sql / success_criteria live in vgi-agent-tests.yaml.
 _AGENT_TEST_TASKS = json.dumps(
     [
         {
             "name": "embedding_dimension_is_384",
             "prompt": "Embed the word 'database' and confirm the vector has 384 dimensions. Return a single boolean.",
-            "reference_sql": "SELECT len(llm.main.ai_embed('database')) = 384 AS is_384",
-            "success_criteria": "Returns true; the default model produces 384-dim vectors.",
-            "ignore_column_names": True,
         },
         {
             "name": "self_similarity_is_one",
             "prompt": (
                 "Compute the cosine similarity of the embedding of 'database' with itself, rounded to 3 decimals."
             ),
-            "reference_sql": (
-                "SELECT ROUND(llm.main.ai_similarity(llm.main.ai_embed('database'), "
-                "llm.main.ai_embed('database')), 3) AS sim"
-            ),
-            "success_criteria": "Returns 1.0; a vector is identical to itself.",
-            "ignore_column_names": True,
         },
         {
             "name": "related_more_similar_than_unrelated",
             "prompt": "Is 'dog' more similar to 'puppy' than to 'airplane'? Return a single boolean.",
-            "reference_sql": (
-                "SELECT llm.main.ai_similarity(llm.main.ai_embed('dog'), llm.main.ai_embed('puppy')) "
-                "> llm.main.ai_similarity(llm.main.ai_embed('dog'), llm.main.ai_embed('airplane')) AS related"
-            ),
-            "success_criteria": "Returns true; a related pair scores higher than an unrelated one.",
-            "ignore_column_names": True,
         },
         {
             "name": "prompt_template_substitution",
             "prompt": "Use the prompt() function to render 'Hi {}' with the value 'Sam'.",
-            "reference_sql": "SELECT llm.main.prompt('Hi {}', 'Sam') AS p",
-            "success_criteria": "Returns 'Hi Sam' via positional template substitution.",
-            "ignore_column_names": True,
         },
         {
             "name": "count_tokens_is_positive",
             "prompt": "Estimate the number of tokens in the text 'the quick brown fox' and confirm it is positive.",
-            "reference_sql": "SELECT llm.main.ai_count_tokens('the quick brown fox') > 0 AS ok",
-            "success_criteria": "Returns true; the local token estimate is a positive integer.",
-            "ignore_column_names": True,
         },
         {
             "name": "complete_a_prompt",
             "prompt": "Ask the model to reply with the single word pong and confirm a non-empty answer comes back.",
-            "reference_sql": "SELECT length(llm.main.ai_complete('Reply with the single word: pong')) > 0 AS ok",
-            "success_criteria": "Returns true; ai_complete produced a non-empty completion (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "completion_details_has_text",
             "prompt": "Get the completion details for a short prompt and confirm the text field is populated.",
-            "reference_sql": "SELECT llm.main.ai_complete_details('Say hello').text IS NOT NULL AS ok",
-            "success_criteria": "Returns true; the details struct carries the reply text (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "describe_an_image",
             "prompt": "Describe an image BLOB with the multimodal completion function.",
-            "reference_sql": (
-                "SELECT llm.main.ai_complete_image('What is in this image?', '\\x89PNG'::BLOB) IS NOT NULL AS ok"
-            ),
-            "success_criteria": "Uses ai_complete_image over a prompt + image BLOB (needs a vision key).",
-            "ignore_column_names": True,
         },
         {
             "name": "classify_text",
             "prompt": "Classify the text 'my card was declined' into one of billing, bug, or feature.",
-            "reference_sql": (
-                "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels "
-                "IS NOT NULL AS ok"
-            ),
-            "success_criteria": "Returns the chosen labels struct (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "filter_text_predicate",
             "prompt": "Decide whether 'How do I reset my password?' is a question using ai_filter.",
-            "reference_sql": (
-                "SELECT llm.main.ai_filter('the text is a question', 'How do I reset my password?') IS NOT NULL AS ok"
-            ),
-            "success_criteria": "Returns a boolean for the predicate (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "extract_structured_json",
             "prompt": "Extract the age from 'Bob is 42' as JSON with an integer age field.",
-            "reference_sql": (
-                "SELECT llm.main.ai_extract('Bob is 42', "
-                '\'{"type":"object","properties":{"age":{"type":"integer"}}}\') IS NOT NULL AS ok'
-            ),
-            "success_criteria": "Returns a JSON string with the extracted field (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "sentiment_overall",
             "prompt": "Analyze the sentiment of 'The food was great but service was slow' and read the overall label.",
-            "reference_sql": (
-                "SELECT llm.main.ai_sentiment('The food was great but service was slow').overall IS NOT NULL AS ok"
-            ),
-            "success_criteria": "Returns the overall sentiment label (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "summarize_text",
             "prompt": "Summarize a short paragraph with ai_summarize.",
-            "reference_sql": (
-                "SELECT llm.main.ai_summarize('DuckDB is an in-process SQL OLAP database.') IS NOT NULL AS ok"
-            ),
-            "success_criteria": "Returns a summary string (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "aggregate_group_with_task",
             "prompt": "Apply a task across a group's rows with ai_agg to get one answer per group.",
-            "reference_sql": (
-                "SELECT llm.main.ai_agg(comment, 'List the top complaints') AS answer "
-                "FROM (VALUES ('too slow'), ('buggy UI')) AS t(comment)"
-            ),
-            "success_criteria": "Returns one aggregated answer for the group (needs a provider key).",
-            "ignore_column_names": True,
         },
         {
             "name": "summarize_group",
             "prompt": "Summarize all of a group's rows into one summary with ai_summarize_agg.",
-            "reference_sql": (
-                "SELECT llm.main.ai_summarize_agg(note) AS summary "
-                "FROM (VALUES ('login failed'), ('disk full')) AS t(note)"
-            ),
-            "success_criteria": "Returns one summary for the group (needs a provider key).",
-            "ignore_column_names": True,
         },
     ]
 )
@@ -415,7 +346,7 @@ def make_catalog() -> Catalog:
         tags=_CATALOG_TAGS,
         schemas=[
             Schema(
-                name="main",
+                path=["main"],
                 comment="AISQL: completion, structured output, embeddings, aggregates, and utilities.",
                 tags=_SCHEMA_TAGS,
                 functions=[*SCALAR_FUNCTIONS, *AGGREGATE_FUNCTIONS],

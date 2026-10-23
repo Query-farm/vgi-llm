@@ -1,0 +1,64 @@
+# Private graders for `vgi-lint simulate` (VGI416). The worker publishes only
+# task names and prompts in vgi.agent_test_tasks; these canonical solutions and
+# grading options stay in the repo and are merged by task name.
+tasks:
+  - name: embedding_dimension_is_384
+    reference_sql: "SELECT len(llm.main.ai_embed('database')) = 384 AS is_384"
+    success_criteria: "Returns true; the default model produces 384-dim vectors."
+    ignore_column_names: true
+  - name: self_similarity_is_one
+    reference_sql: "SELECT ROUND(llm.main.ai_similarity(llm.main.ai_embed('database'), llm.main.ai_embed('database')), 3) AS sim"
+    success_criteria: "Returns 1.0; a vector is identical to itself."
+    ignore_column_names: true
+  - name: related_more_similar_than_unrelated
+    reference_sql: "SELECT llm.main.ai_similarity(llm.main.ai_embed('dog'), llm.main.ai_embed('puppy')) > llm.main.ai_similarity(llm.main.ai_embed('dog'), llm.main.ai_embed('airplane')) AS related"
+    success_criteria: "Returns true; a related pair scores higher than an unrelated one."
+    ignore_column_names: true
+  - name: prompt_template_substitution
+    reference_sql: "SELECT llm.main.prompt('Hi {}', 'Sam') AS p"
+    success_criteria: "Returns 'Hi Sam' via positional template substitution."
+    ignore_column_names: true
+  - name: count_tokens_is_positive
+    reference_sql: "SELECT llm.main.ai_count_tokens('the quick brown fox') > 0 AS ok"
+    success_criteria: "Returns true; the local token estimate is a positive integer."
+    ignore_column_names: true
+  - name: complete_a_prompt
+    reference_sql: "SELECT length(llm.main.ai_complete('Reply with the single word: pong')) > 0 AS ok"
+    success_criteria: "Returns true; ai_complete produced a non-empty completion (needs a provider key)."
+    ignore_column_names: true
+  - name: completion_details_has_text
+    reference_sql: "SELECT llm.main.ai_complete_details('Say hello').text IS NOT NULL AS ok"
+    success_criteria: "Returns true; the details struct carries the reply text (needs a provider key)."
+    ignore_column_names: true
+  - name: describe_an_image
+    reference_sql: "SELECT llm.main.ai_complete_image('What is in this image?', '\\x89PNG'::BLOB) IS NOT NULL AS ok"
+    success_criteria: "Uses ai_complete_image over a prompt + image BLOB (needs a vision key)."
+    ignore_column_names: true
+  - name: classify_text
+    reference_sql: "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels IS NOT NULL AS ok"
+    success_criteria: "Returns the chosen labels struct (needs a provider key)."
+    ignore_column_names: true
+  - name: filter_text_predicate
+    reference_sql: "SELECT llm.main.ai_filter('the text is a question', 'How do I reset my password?') IS NOT NULL AS ok"
+    success_criteria: "Returns a boolean for the predicate (needs a provider key)."
+    ignore_column_names: true
+  - name: extract_structured_json
+    reference_sql: "SELECT llm.main.ai_extract('Bob is 42', '{\"type\":\"object\",\"properties\":{\"age\":{\"type\":\"integer\"}}}') IS NOT NULL AS ok"
+    success_criteria: "Returns a JSON string with the extracted field (needs a provider key)."
+    ignore_column_names: true
+  - name: sentiment_overall
+    reference_sql: "SELECT llm.main.ai_sentiment('The food was great but service was slow').overall IS NOT NULL AS ok"
+    success_criteria: "Returns the overall sentiment label (needs a provider key)."
+    ignore_column_names: true
+  - name: summarize_text
+    reference_sql: "SELECT llm.main.ai_summarize('DuckDB is an in-process SQL OLAP database.') IS NOT NULL AS ok"
+    success_criteria: "Returns a summary string (needs a provider key)."
+    ignore_column_names: true
+  - name: aggregate_group_with_task
+    reference_sql: "SELECT llm.main.ai_agg(comment, 'List the top complaints') AS answer FROM (VALUES ('too slow'), ('buggy UI')) AS t(comment)"
+    success_criteria: "Returns one aggregated answer for the group (needs a provider key)."
+    ignore_column_names: true
+  - name: summarize_group
+    reference_sql: "SELECT llm.main.ai_summarize_agg(note) AS summary FROM (VALUES ('login failed'), ('disk full')) AS t(note)"
+    success_criteria: "Returns one summary for the group (needs a provider key)."
+    ignore_column_names: true
