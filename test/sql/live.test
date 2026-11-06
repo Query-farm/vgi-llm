@@ -17,7 +17,7 @@ statement ok
 LOAD vgi;
 
 statement ok
-ATTACH 'llm' AS ai (TYPE vgi, LOCATION '${VGI_TEST_WORKER}');
+ATTACH 'llm' AS ai (TYPE vgi, LOCATION '{VGI_TEST_WORKER}');
 
 # A completion comes back non-empty.
 query I

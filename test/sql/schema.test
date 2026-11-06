@@ -14,7 +14,7 @@ statement ok
 LOAD vgi;
 
 statement ok
-ATTACH 'llm' AS ai (TYPE vgi, LOCATION '${VGI_TEST_WORKER}');
+ATTACH 'llm' AS ai (TYPE vgi, LOCATION '{VGI_TEST_WORKER}');
 
 # ---- Return-type backbone: DESCRIBE binds only (no network) -----------------
 

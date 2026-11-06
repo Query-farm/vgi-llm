@@ -62,12 +62,15 @@ uv run ruff check --fix . && uv run ruff format .
 uv run mypy vgi_llm/
 uv run pydoclint --config pyproject.toml vgi_llm/
 uv run pytest -n auto
-./run_tests.sh                 # haybarn SQLLogic E2E (needs haybarn-unittest + vgi extension)
+./run_tests.sh                 # haybarn SQLLogic E2E (needs haybarn-unittest 2.0 + vgi extension)
 ```
 
 Iterate until ruff, mypy `--strict`, pydoclint, and pytest are green. The SQL
 E2E and `vgi-lint` need external tooling (the community `vgi` DuckDB extension /
-`vgi-lint-check`); the bind-only + keyless SQL legs run without any key.
+`vgi-lint-check` 2.x); the bind-only + keyless SQL legs run without any key.
+The worker speaks VGI protocol vgi.v3 / 3.1 (vgi-python >= 0.49), so both need
+haybarn 2.0 (`uv tool install --prerelease allow 'haybarn-unittest>=2.0.0rc11,<2.1'`);
+haybarn-unittest 2.0 isolates `$HOME`, so `run_tests.sh` passes `--keep-home`.
 
 ## Gotchas
 
