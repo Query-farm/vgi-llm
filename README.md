@@ -19,7 +19,7 @@ returning `NULL`, so a broken configuration is loud, not a column of quiet
 ## Contents
 
 - [Requirements](#requirements)
-- [Install and attach](#install-and-attach)
+- [Quick start](#quick-start)
 - [Keyless in 10 seconds](#keyless-in-10-seconds)
 - [Add a cloud provider](#add-a-cloud-provider)
 - [Functions](#functions)
@@ -39,13 +39,51 @@ returning `NULL`, so a broken configuration is loud, not a column of quiet
 - No API key to start (embeddings, similarity, `prompt`, and `ai_count_tokens`
   are fully local). A provider key unlocks the LLM functions.
 
-## Install and attach
+## Quick start
+
+The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from a tagged release on GitHub. `uvx` builds an isolated environment on the first ATTACH and reuses it afterwards:
+
+```sql
+INSTALL vgi FROM community;
+LOAD vgi;
+
+ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-llm@v0.2.0 vgi-llm-worker');
+
+-- Embed a string into a fixed-length FLOAT[] with the local default model (keyless).
+SELECT len(llm.main.ai_embed('hello world')) AS dim;
+
+-- A phrase is maximally similar to itself (keyless).
+SELECT ROUND(llm.main.ai_similarity(llm.main.ai_embed('database'), llm.main.ai_embed('database')), 3) AS sim;
+```
+
+Functions live in the `llm.main` schema. Qualify calls as `llm.<fn>(...)`,
+or set the search path once to call them unqualified:
+
+```sql
+SET search_path = 'llm.main';
+```
+
+Embeddings, similarity, `prompt` and `ai_count_tokens` need no API key. The LLM
+functions need a provider key (Anthropic, OpenRouter, OpenAI) or a local Ollama,
+configured through a DuckDB `llm` secret — see
+[Add a cloud provider](#add-a-cloud-provider).
+
+Change `@v0.2.0` to move to a newer release.
+
+### Other ways to run it
+
+- **Docker** (the image bundles the worker and its dependencies):
+
+  ```sql
+  ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.2.0');
+  ```
+
+- **From a local checkout** (`git clone https://github.com/Query-farm/vgi-llm`), point `LOCATION` at `uv run --project /path/to/vgi-llm vgi-llm-worker`.
+
+### Build from source
 
 `vgi-llm` is a standard Python package whose worker is launched by the
-`vgi-llm-worker` console script. Point DuckDB's `ATTACH ... LOCATION` at that
-command.
-
-**From source (no publish required):**
+`vgi-llm-worker` console script. To run it from a source checkout:
 
 ```sh
 git clone https://github.com/Query-farm/vgi-llm
@@ -67,12 +105,7 @@ console script resolves directly:
 ATTACH 'llm' (TYPE vgi, LOCATION 'vgi-llm-worker');
 ```
 
-Functions live in the `llm.main` schema. Qualify calls as `llm.<fn>(...)`,
-or set the search path once to call them unqualified:
-
-```sql
-SET search_path = 'llm.main';
-```
+For the lint / test workflow, see [Development](#development).
 
 ## Keyless in 10 seconds
 
@@ -291,8 +324,8 @@ endpoint), which is what the bundled `Dockerfile` serves.
 uv run --extra serve vgi-serve vgi_llm.worker:LlmWorker --http --port 8000
 
 # Published multi-arch image (no build needed) — serves HTTP by default
-docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:latest   # or :0.1.2 / :edge
-docker run -i    ghcr.io/query-farm/vgi-llm:latest stdio     # stdio transport
+docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:0.2.0   # or :latest / :edge
+docker run -i    ghcr.io/query-farm/vgi-llm:0.2.0 stdio     # stdio transport
 
 # Or build it yourself
 docker build -t vgi-llm .
@@ -307,7 +340,7 @@ Attach from DuckDB by URL, or point `ATTACH` straight at the OCI image:
 
 ```sql
 ATTACH 'llm' (TYPE vgi, LOCATION 'http://localhost:8000');            -- a running HTTP worker
-ATTACH 'llm' (TYPE vgi, LOCATION 'oci://ghcr.io/query-farm/vgi-llm:latest');  -- pull + run the image
+ATTACH 'llm' (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.2.0');  -- pull + run the image
 ```
 
 ## Design notes
