@@ -235,7 +235,8 @@ _SCHEMA_EXAMPLE_QUERIES = json.dumps(
 )
 
 _CATALOG_TAGS = {
-    "vgi.title": "AI SQL Functions (AISQL)",
+    "vgi.title": "AI SQL Functions",
+    "vgi.subtitle": "LLM completion, classification, extraction, and embeddings as DuckDB SQL functions.",
     "vgi.doc_llm": _CATALOG_DOC_LLM,
     "vgi.doc_md": _CATALOG_DOC_MD,
     "vgi.keywords": json.dumps(
@@ -270,7 +271,7 @@ _CATALOG_TAGS = {
 }
 
 _SCHEMA_TAGS = {
-    "vgi.title": "AISQL — main schema",
+    "vgi.title": "AISQL Functions",
     "vgi.keywords": json.dumps(
         [
             "ai",
