@@ -47,7 +47,7 @@ The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from
 INSTALL vgi FROM community;
 LOAD vgi;
 
-ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-llm@v0.3.0 vgi-llm-worker');
+ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-llm@v0.4.0 vgi-llm-worker');
 
 -- Embed a string into a fixed-length FLOAT[] with the local default model (keyless).
 SELECT len(llm.main.ai_embed('hello world')) AS dim;
@@ -68,14 +68,14 @@ functions need a provider key (Anthropic, OpenRouter, OpenAI) or a local Ollama,
 configured through a DuckDB `llm` secret — see
 [Add a cloud provider](#add-a-cloud-provider).
 
-Change `@v0.3.0` to move to a newer release.
+Change `@v0.4.0` to move to a newer release.
 
 ### Other ways to run it
 
 - **Docker** (the image bundles the worker and its dependencies):
 
   ```sql
-  ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.3.0');
+  ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.4.0');
   ```
 
 - **From a local checkout** (`git clone https://github.com/Query-farm/vgi-llm`), point `LOCATION` at `uv run --project /path/to/vgi-llm vgi-llm-worker`.
@@ -324,8 +324,8 @@ endpoint), which is what the bundled `Dockerfile` serves.
 uv run --extra serve vgi-serve vgi_llm.worker:LlmWorker --http --port 8000
 
 # Published multi-arch image (no build needed) — serves HTTP by default
-docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:0.3.0   # or :latest / :edge
-docker run -i    ghcr.io/query-farm/vgi-llm:0.3.0 stdio     # stdio transport
+docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:0.4.0   # or :latest / :edge
+docker run -i    ghcr.io/query-farm/vgi-llm:0.4.0 stdio     # stdio transport
 
 # Or build it yourself
 docker build -t vgi-llm .
@@ -340,7 +340,7 @@ Attach from DuckDB by URL, or point `ATTACH` straight at the OCI image:
 
 ```sql
 ATTACH 'llm' (TYPE vgi, LOCATION 'http://localhost:8000');            -- a running HTTP worker
-ATTACH 'llm' (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.3.0');  -- pull + run the image
+ATTACH 'llm' (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.4.0');  -- pull + run the image
 ```
 
 ## Design notes
@@ -398,7 +398,7 @@ uv run pytest -n auto
 
 The SQL end-to-end suite (`test/sql/*.test`) runs against the community `vgi`
 DuckDB extension via `haybarn-unittest` (haybarn 2.0 or newer: the worker speaks VGI
-protocol vgi.v3 / 3.2, which only the haybarn 2.0 `vgi` extension accepts); see
+protocol vgi.v3 / 3.3, which only the haybarn 2.0 `vgi` extension accepts); see
 `run_tests.sh`. The DESCRIBE-schema
 legs are bind-only (no network) and always run; live legs are gated on
 `ANTHROPIC_API_KEY` / Ollama reachability and skip cleanly when absent.

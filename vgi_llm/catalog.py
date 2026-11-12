@@ -32,11 +32,31 @@ LLM_SECRET_TYPE = SecretTypeSpec(
     description="Provider keys for vgi-llm (one field per backend: Anthropic / OpenRouter / OpenAI / Ollama).",
     schema=pa.schema(
         [
-            pa.field("anthropic_api_key", pa.string(), metadata={"redact": "true"}),
-            pa.field("openrouter_api_key", pa.string(), metadata={"redact": "true"}),
-            pa.field("openai_api_key", pa.string(), metadata={"redact": "true"}),
-            pa.field("ollama_host", pa.string()),
-        ]
+            pa.field(
+                "anthropic_api_key",
+                pa.string(),
+                metadata={
+                    "redact": "true",
+                    "vgi_doc": "Anthropic API key (sk-ant-...) from console.anthropic.com > API Keys",
+                },
+            ),
+            pa.field(
+                "openrouter_api_key",
+                pa.string(),
+                metadata={"redact": "true", "vgi_doc": "OpenRouter API key (sk-or-...) from openrouter.ai/keys"},
+            ),
+            pa.field(
+                "openai_api_key",
+                pa.string(),
+                metadata={"redact": "true", "vgi_doc": "OpenAI API key (sk-...) from platform.openai.com/api-keys"},
+            ),
+            pa.field(
+                "ollama_host",
+                pa.string(),
+                metadata={"vgi_doc": "Base URL of a local Ollama daemon, e.g. http://localhost:11434 (no key needed)"},
+            ),
+        ],
+        metadata={"vgi_doc_url": "https://github.com/Query-farm/vgi-llm#add-a-cloud-provider"},
     ),
 )
 

@@ -15,7 +15,7 @@
 #   uv sync --extra dev                                   # the worker's Python environment
 #
 # haybarn 2.0 is required: its community `vgi` extension is the one that speaks the
-# worker's VGI protocol (vgi.v3 / 3.2). --keep-home lets the runner see the extension
+# worker's VGI protocol (vgi.v3 / 3.3). --keep-home lets the runner see the extension
 # installed under the real $HOME (haybarn-unittest 2.0 isolates $HOME per run).
 set -euo pipefail
 
