@@ -415,3 +415,7 @@ legs are bind-only (no network) and always run; live legs are gated on
 ## License
 
 MIT — Copyright 2026 Query Farm LLC.
+
+## Notebooks
+
+[Executed local retrieval and context-budget walkthrough](notebooks/README.md).
