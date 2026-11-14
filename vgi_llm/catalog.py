@@ -18,7 +18,7 @@ import pyarrow as pa
 from vgi.catalog import Catalog, Schema
 from vgi.catalog.secret_type import SecretTypeSpec
 
-from vgi_llm import models
+from vgi_llm import examples, models
 from vgi_llm.aggregates import AGGREGATE_FUNCTIONS
 from vgi_llm.scalars import SCALAR_FUNCTIONS
 
@@ -153,6 +153,16 @@ _EXECUTABLE_EXAMPLES = json.dumps(
             "description": "Estimate a text's token count locally (no model call).",
             "sql": "SELECT llm.main.ai_count_tokens('the quick brown fox') AS tokens",
         },
+        {
+            "name": "route_tickets_by_embedding",
+            "description": examples.ROUTE_TICKETS.description,
+            "sql": examples.ROUTE_TICKETS.sql,
+        },
+        {
+            "name": "prompt_token_budget",
+            "description": examples.PROMPT_TOKEN_BUDGET.description,
+            "sql": examples.PROMPT_TOKEN_BUDGET.sql,
+        },
     ]
 )
 
@@ -222,6 +232,25 @@ _AGENT_TEST_TASKS = json.dumps(
             "name": "summarize_group",
             "prompt": "Summarize all of a group's rows into one summary with ai_summarize_agg.",
         },
+        {
+            "name": "route_tickets_to_nearest_label",
+            "prompt": (
+                "Without calling an LLM (keyless embeddings only), route each support ticket to the closest "
+                "label. Tickets: 'My parcel never arrived', 'I cannot log in after resetting my password', "
+                "'Where can I track my delivery?'. Labels and their descriptions: 'shipping' = 'delivery, "
+                "tracking and lost parcels'; 'account' = 'login, password and profile settings'. Return two "
+                "VARCHAR columns, ticket and label, one row per ticket, ordered by ticket."
+            ),
+        },
+        {
+            "name": "rendered_prompt_token_total",
+            "prompt": (
+                "Render the template 'Translate to French: {}' with prompt() for each of the phrases "
+                "'good morning', 'where is the train station?' and 'thank you very much', then return the "
+                "total token count of the three rendered prompts using ai_count_tokens with its default "
+                "tokenizer, as a single integer column total_tokens."
+            ),
+        },
     ]
 )
 
@@ -251,6 +280,7 @@ _SCHEMA_EXAMPLE_QUERIES = json.dumps(
             "description": "Classify text into a subset of the given categories.",
             "sql": "SELECT llm.main.ai_classify('my card was declined', ['billing','bug','feature']).labels",
         },
+        *({"description": e.description, "sql": e.sql} for e in examples.COMPOSED_EXAMPLES),
     ]
 )
 

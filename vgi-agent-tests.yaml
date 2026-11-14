@@ -62,3 +62,11 @@ tasks:
     reference_sql: "SELECT llm.main.ai_summarize_agg(note) AS summary FROM (VALUES ('login failed'), ('disk full')) AS t(note)"
     success_criteria: "Returns one summary for the group (needs a provider key)."
     ignore_column_names: true
+  - name: route_tickets_to_nearest_label
+    reference_sql: "WITH tickets(ticket) AS (VALUES ('My parcel never arrived'), ('I cannot log in after resetting my password'), ('Where can I track my delivery?')), labels(label, hint) AS (VALUES ('shipping', 'delivery, tracking and lost parcels'), ('account', 'login, password and profile settings')) SELECT ticket, arg_max(label, llm.main.ai_similarity(llm.main.ai_embed(ticket), llm.main.ai_embed(hint))) AS label FROM tickets, labels GROUP BY ticket ORDER BY ticket"
+    success_criteria: "Parcel and delivery tickets route to shipping, the login ticket to account; margins are >= 0.15 cosine whether the label name or its description is embedded."
+    ignore_column_names: true
+  - name: rendered_prompt_token_total
+    reference_sql: "SELECT CAST(SUM(llm.main.ai_count_tokens(llm.main.prompt('Translate to French: {}', p))) AS BIGINT) AS total_tokens FROM (VALUES ('good morning'), ('where is the train station?'), ('thank you very much')) AS t(p)"
+    success_criteria: "Returns 24, the summed local tiktoken count of the three rendered prompts."
+    ignore_column_names: true

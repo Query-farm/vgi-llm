@@ -243,6 +243,15 @@ SELECT ai_complete_image('What is in this image?', img) FROM photos;
 -- One answer per group via LLM map-reduce
 SELECT topic, ai_agg(comment, 'List the top three complaints')
 FROM feedback GROUP BY topic;
+
+-- Keyless zero-shot routing: nearest label description per ticket (no LLM call)
+WITH labels(label, hint) AS (VALUES
+  ('billing', 'payments, invoices, refunds and charges'),
+  ('bug',     'the software crashes or shows an error'),
+  ('feature', 'a request for a new capability'))
+SELECT t.id, arg_max(l.label, ai_similarity(ai_embed(t.body), ai_embed(l.hint))) AS label
+FROM tickets t, labels l
+GROUP BY t.id ORDER BY t.id;
 ```
 
 ## Snowflake Cortex compatibility

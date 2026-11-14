@@ -36,6 +36,7 @@ from vgi.metadata import FunctionExample
 from vgi.scalar_function import ScalarFunction
 
 from vgi_llm import engine, meta, models
+from vgi_llm import examples as composed
 from vgi_llm.providers import ImagePart, Message, ProviderError, ResponseFormat
 
 
@@ -622,7 +623,7 @@ class AiCompleteImage(ScalarFunction):
         categories = ["completion"]
         required_secrets = ["llm"]
         examples = _ex(
-            "SELECT llm.main.ai_complete_image('What is in this image?', '\x89PNG'::BLOB)",
+            "SELECT llm.main.ai_complete_image('What is in this image?', '\\x89PNG'::BLOB)",
             "Describe an image column with the default model",
         )
         tags = {**_IMAGE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
@@ -670,7 +671,7 @@ class AiCompleteImageModel(ScalarFunction):
         categories = ["completion"]
         required_secrets = ["llm"]
         examples = _ex(
-            "SELECT llm.main.ai_complete_image('Describe it', '\x89PNG'::BLOB, 'openai/gpt-4o')",
+            "SELECT llm.main.ai_complete_image('Describe it', '\\x89PNG'::BLOB, 'openai/gpt-4o')",
             "Describe an image with an explicit vision model",
         )
         tags = {**_IMAGE_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
@@ -1763,7 +1764,10 @@ class AiCountTokens(ScalarFunction):
         name = "ai_count_tokens"
         description = "Count tokens per text with a local tiktoken tokenizer (no network); BIGINT."
         categories = ["utility"]
-        examples = _ex("SELECT llm.main.ai_count_tokens('the quick brown fox')", "Count the tokens in a text")
+        examples = [
+            *_ex("SELECT llm.main.ai_count_tokens('the quick brown fox')", "Count the tokens in a text"),
+            composed.PROMPT_TOKEN_BUDGET,
+        ]
         tags = {**_COUNT_TOKENS_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
@@ -2013,7 +2017,10 @@ class AiEmbed(ScalarFunction):
             f"({models.DEFAULT_MODEL}); keyless. NULL/empty -> NULL."
         )
         categories = ["embedding"]
-        examples = _ex("SELECT len(llm.main.ai_embed('hello world'))", "Embed text into a FLOAT[] vector (keyless)")
+        examples = [
+            *_ex("SELECT len(llm.main.ai_embed('hello world'))", "Embed text into a FLOAT[] vector (keyless)"),
+            composed.ROUTE_TICKETS,
+        ]
         tags = {**_EMBED_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
@@ -2100,10 +2107,13 @@ class AiSimilarity(ScalarFunction):
         name = "ai_similarity"
         description = "Cosine similarity of two FLOAT[] vectors, in [-1, 1] (pure arithmetic); NULL on mismatch."
         categories = ["embedding"]
-        examples = _ex(
-            "SELECT llm.main.ai_similarity(llm.main.ai_embed('cat'), llm.main.ai_embed('kitten'))",
-            "Cosine similarity between two embeddings",
-        )
+        examples = [
+            *_ex(
+                "SELECT llm.main.ai_similarity(llm.main.ai_embed('cat'), llm.main.ai_embed('kitten'))",
+                "Cosine similarity between two embeddings",
+            ),
+            composed.SEMANTIC_SEARCH,
+        ]
         tags = {**_SIMILARITY_TAGS, "vgi.example_queries": meta.example_queries_tag(examples)}
 
     @classmethod
