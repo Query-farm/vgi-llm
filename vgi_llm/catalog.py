@@ -95,7 +95,18 @@ _CATALOG_DOC_MD = (
     "## Notes\n\n"
     "- The model argument routes by prefix (`anthropic/…`, `openrouter/…`, `openai/…`, `ollama/…`).\n"
     "- Empty/NULL input maps to NULL; a provider error or missing key raises a DuckDB error.\n"
-    "- Embeddings run locally (fastembed/ONNX); pair with the DuckDB VSS extension."
+    "- Embeddings run locally (fastembed/ONNX); pair with the DuckDB VSS extension.\n\n"
+    "## Sources and references\n\n"
+    "- [OpenRouter](https://openrouter.ai/docs) -- one key for hundreds of cloud models; browse "
+    "model ids at [openrouter.ai/models](https://openrouter.ai/models)\n"
+    "- [Ollama](https://ollama.com/) -- run models locally for keyless completions\n"
+    "- [Claude API](https://platform.claude.com/docs/en/api/overview) and "
+    "[OpenAI API](https://platform.openai.com/docs/api-reference) -- the direct providers behind "
+    "`anthropic/…` and `openai/…`\n"
+    "- [FastEmbed](https://github.com/qdrant/fastembed) -- the local ONNX embedding library behind "
+    "`ai_embed`\n"
+    "- [Snowflake Cortex AISQL](https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql) -- "
+    "the function family this worker mirrors"
 )
 
 _CATEGORIES = json.dumps(
