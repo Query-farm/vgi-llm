@@ -47,7 +47,7 @@ The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from
 INSTALL vgi FROM community;
 LOAD vgi;
 
-ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-llm@v0.4.1 vgi-llm-worker');
+ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-llm@v0.4.2 vgi-llm-worker');
 
 -- Embed a string into a fixed-length FLOAT[] with the local default model (keyless).
 SELECT len(llm.main.ai_embed('hello world')) AS dim;
@@ -68,14 +68,14 @@ functions need a provider key (Anthropic, OpenRouter, OpenAI) or a local Ollama,
 configured through a DuckDB `llm` secret — see
 [Add a cloud provider](#add-a-cloud-provider).
 
-Change `@v0.4.1` to move to a newer release.
+Change `@v0.4.2` to move to a newer release.
 
 ### Other ways to run it
 
 - **Docker** (the image bundles the worker and its dependencies):
 
   ```sql
-  ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.4.1');
+  ATTACH 'llm' AS llm (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.4.2');
   ```
 
 - **From a local checkout** (`git clone https://github.com/Query-farm/vgi-llm`), point `LOCATION` at `uv run --project /path/to/vgi-llm vgi-llm-worker`.
@@ -333,8 +333,8 @@ endpoint), which is what the bundled `Dockerfile` serves.
 uv run --extra serve vgi-serve vgi_llm.worker:LlmWorker --http --port 8000
 
 # Published multi-arch image (no build needed) — serves HTTP by default
-docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:0.4.1   # or :latest / :edge
-docker run -i    ghcr.io/query-farm/vgi-llm:0.4.1 stdio     # stdio transport
+docker run -p 8000:8000 ghcr.io/query-farm/vgi-llm:0.4.2   # or :latest / :edge
+docker run -i    ghcr.io/query-farm/vgi-llm:0.4.2 stdio     # stdio transport
 
 # Or build it yourself
 docker build -t vgi-llm .
@@ -349,7 +349,7 @@ Attach from DuckDB by URL, or point `ATTACH` straight at the OCI image:
 
 ```sql
 ATTACH 'llm' (TYPE vgi, LOCATION 'http://localhost:8000');            -- a running HTTP worker
-ATTACH 'llm' (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.4.1');  -- pull + run the image
+ATTACH 'llm' (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-llm:0.4.2');  -- pull + run the image
 ```
 
 ## Design notes
