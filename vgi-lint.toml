@@ -6,7 +6,7 @@ fail_on = "info"
 [tool.vgi-lint-check.execution]
 # The keyless legs the linter's VGI911 probe touches (ai_embed / ai_similarity) load a
 # local ONNX model on first use; on a cold cache that download can exceed the default
-# scan window. Warm the model before linting (see run_tests.sh / CI) so this stays snug.
+# scan window. Warm the model before linting (see `make warm` / CI) so this stays snug.
 scan_timeout = 60
 timeout = 60
 concurrency = 1

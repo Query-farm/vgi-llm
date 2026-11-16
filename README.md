@@ -407,8 +407,8 @@ uv run pytest -n auto
 
 The SQL end-to-end suite (`test/sql/*.test`) runs against the community `vgi`
 DuckDB extension via `haybarn-unittest` (haybarn 2.0 or newer: the worker speaks VGI
-protocol vgi.v3 / 3.3, which only the haybarn 2.0 `vgi` extension accepts); see
-`run_tests.sh`. The DESCRIBE-schema
+protocol vgi.v3 / 3.3, which only the haybarn 2.0 `vgi` extension accepts); run it with
+`make test-sql` (stdio, launch and http; `ci/run-integration.sh`). The DESCRIBE-schema
 legs are bind-only (no network) and always run; live legs are gated on
 `ANTHROPIC_API_KEY` / Ollama reachability and skip cleanly when absent.
 
