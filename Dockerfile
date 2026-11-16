@@ -6,7 +6,7 @@
 # See docker-entrypoint.sh. Keyless embeddings run locally (fastembed/ONNX); provider
 # keys are supplied at query time via a VGI `llm` secret or *_API_KEY env vars.
 # syntax=docker/dockerfile:1
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ARG VERSION=0.0.0
 ARG GIT_COMMIT=unknown

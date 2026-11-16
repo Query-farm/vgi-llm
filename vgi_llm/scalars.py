@@ -1166,7 +1166,7 @@ def _extract(
         parsed = json.loads(response_format) if response_format else None
         if isinstance(parsed, dict):
             schema_obj = parsed
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         schema_obj = None
 
     schema_text = response_format or '{"type": "object"}'

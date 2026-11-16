@@ -26,7 +26,7 @@ test/sql/             # haybarn SQLLogic E2E (.test): bind-only schema + keyless
 
 ## Conventions
 
-- Python ≥ 3.13, `from __future__ import annotations`, Google docstrings.
+- Python ≥ 3.14, `from __future__ import annotations`, Google docstrings.
 - Copyright header on every module: `# Copyright 2026 Query Farm LLC - https://query.farm`.
 - **Errors throw; only empty input is NULL.** A provider/runtime failure
   (`ProviderError`, missing key, unparseable structured reply) must **propagate**

@@ -224,7 +224,7 @@ def parse_json_object(text: str | None) -> dict[str, Any] | None:
     for candidate in candidates:
         try:
             parsed = json.loads(candidate)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
         if isinstance(parsed, dict):
             return parsed

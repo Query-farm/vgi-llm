@@ -34,7 +34,7 @@ returning `NULL`, so a broken configuration is loud, not a column of quiet
 
 ## Requirements
 
-- **Python 3.13+**
+- **Python 3.14+**
 - The DuckDB **`vgi`** community extension (`INSTALL vgi FROM community;`)
 - No API key to start (embeddings, similarity, `prompt`, and `ai_count_tokens`
   are fully local). A provider key unlocks the LLM functions.
