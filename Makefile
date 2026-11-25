@@ -9,7 +9,7 @@
 # ANTHROPIC_API_KEY via `require-env`; without a key it is skipped, and
 # ci/run-integration.sh allows exactly that skip.
 
-HAYBARN_VERSION  ?= 2.0.0rc11
+HAYBARN_VERSION  ?= 2.0.1rc3
 WORKER           := $(CURDIR)/.venv/bin/vgi-llm-worker
 TOOLS            := $(CURDIR)/.tools
 HAYBARN_UNITTEST := $(TOOLS)/bin/haybarn-unittest

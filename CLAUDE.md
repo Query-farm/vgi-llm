@@ -68,7 +68,7 @@ make test-sql                  # haybarn SQLLogic E2E over stdio, launch and htt
 Iterate until ruff, mypy `--strict`, pydoclint, and pytest are green. The SQL
 E2E and `vgi-lint` need external tooling (the community `vgi` DuckDB extension /
 `vgi-lint-check` 2.x); the bind-only + keyless SQL legs run without any key.
-The worker speaks VGI protocol vgi.v3 / 3.3 (vgi-python >= 0.51), so both need
+The worker speaks VGI protocol vgi.v3 / 3.4 (vgi-python >= 0.51), so both need
 haybarn 2.0; `make tools` installs the pinned `haybarn-unittest` into `.tools`.
 
 ## Gotchas
