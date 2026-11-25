@@ -1,6 +1,6 @@
 [project]
 name = "vgi-llm"
-version = "0.4.2"
+version = "0.5.0"
 description = "AI SQL functions for DuckDB via VGI — Snowflake Cortex AISQL-style LLM completion, classification, filtering, extraction, sentiment, aggregation, and embeddings, over a pluggable provider (Anthropic / OpenRouter / OpenAI / Ollama) with keyless local embeddings."
 readme = "README.md"
 keywords = [
@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "vgi-python>=0.52.2,<0.53",
+    "vgi-python>=0.55.2,<0.56",
     "anthropic>=0.69",
     "openai>=1.60",
     "fastembed>=0.3",
@@ -38,7 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # HTTP-serving extra — installed by the Docker image (`.[serve]`).
-serve = ["vgi-python[http]>=0.52.2,<0.53"]
+serve = ["vgi-python[http,oauth]>=0.55.2,<0.56"]
 dev = [
     "mypy",
     "pyarrow-stubs",
